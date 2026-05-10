@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matschema Inloggning</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <section class="card login-card">
+        <h1>Inloggning för admin</h1>
+        <p>Logga in för att hantera måltider och scheman.</p>
+
+        <% if (error) { %>
+          <p class="message error"><%= error %></p>
+        <% } %>
+
+        <form method="post" action="/auth/login" class="login-form">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" required />
+
+          <label for="password">Lösenord</label>
+          <input id="password" name="password" type="password" required />
+
+          <button type="submit" class="button">Logga in</button>
+        </form>
+
+        <p><a href="/frontend">Tillbaka till frontend</a></p>
+      </section>
+    </main>
+  </body>
+</html>

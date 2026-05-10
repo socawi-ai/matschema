@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/', (_req, res) => {
-  res.render('index', { appName: 'matschema' });
+  res.redirect('/frontend');
 });
 
 module.exports = router;

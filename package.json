@@ -6,13 +6,24 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "node --watch src/server.js"
+    "dev": "node --watch src/server.js",
+    "restart": "bash scripts/restart-server.sh",
+    "seed:admin": "node scripts/seed-admin.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:restart": "pm2 restart matschema",
+    "pm2:stop": "pm2 stop matschema",
+    "pm2:logs": "pm2 logs matschema",
+    "pm2:status": "pm2 status"
   },
   "engines": {
     "node": ">=18"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "ejs": "^3.1.10",
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "express-session": "^1.18.1",
+    "sqlite": "^5.1.1",
+    "sqlite3": "^5.1.7"
   }
 }

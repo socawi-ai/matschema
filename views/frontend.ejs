@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matschema Frontend</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <h1>Matschema</h1>
+        <div class="actions">
+          <a class="button secondary" href="/frontend?offset=<%= offsetWeeks - 3 %>">Föregående 3 veckor</a>
+          <a class="button secondary" href="/frontend?offset=0">Nuvarande vy</a>
+          <a class="button secondary" href="/frontend?offset=<%= offsetWeeks + 3 %>">Nästa 3 veckor</a>
+          <a class="button" href="/auth/login">Logga in till admin</a>
+        </div>
+      </header>
+      <p>Vill du hantera måltider eller skapa schema? Använd <strong>Logga in till admin</strong> ovan.</p>
+
+      <section class="weeks-grid">
+        <% weeks.forEach(function(week) { %>
+          <article class="card">
+            <h2>Vecka <%= week.weekNumber %></h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>Dag</th>
+                  <th>Måltid</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% week.entries.forEach(function(entry) { %>
+                  <tr>
+                    <td><%= entry.day %></td>
+                    <td>
+                      <% if (entry.ingredients && entry.ingredients.length) { %>
+                        <button
+                          type="button"
+                          class="meal-link"
+                          data-meal-name="<%= entry.mealName %>"
+                          data-ingredients="<%= entry.ingredients.join('||') %>"
+                        >
+                          <%= entry.mealName %>
+                        </button>
+                      <% } else { %>
+                        <%= entry.mealName %>
+                      <% } %>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </article>
+        <% }) %>
+      </section>
+    </main>
+
+    <dialog id="ingredientsDialog" class="ingredients-dialog">
+      <h3 id="ingredientsTitle"></h3>
+      <ul id="ingredientsList"></ul>
+      <form method="dialog">
+        <button class="button secondary">Stäng</button>
+      </form>
+    </dialog>
+
+    <script>
+      const dialog = document.getElementById('ingredientsDialog');
+      const title = document.getElementById('ingredientsTitle');
+      const list = document.getElementById('ingredientsList');
+
+      document.querySelectorAll('.meal-link').forEach((button) => {
+        button.addEventListener('click', () => {
+          const mealName = button.dataset.mealName || 'Måltid';
+          const ingredientsRaw = button.dataset.ingredients || '';
+          const ingredients = ingredientsRaw.split('||').filter(Boolean);
+
+          title.textContent = `Ingredienser: ${mealName}`;
+          list.innerHTML = ingredients.map((item) => `<li>${item}</li>`).join('');
+          dialog.showModal();
+        });
+      });
+    </script>
+  </body>
+</html>
