@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matschema Admin</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page">
+      <header class="page-header">
+        <h1>Admin</h1>
+        <div class="actions">
+          <a class="button" href="/frontend">Frontend</a>
+          <a class="button secondary" href="/">Start</a>
+          <button type="button" class="button secondary" onclick="document.getElementById('user-settings-dialog').showModal()">
+            Användarinställningar
+          </button>
+          <form method="post" action="/auth/logout">
+            <button type="submit" class="button secondary">Logga ut</button>
+          </form>
+        </div>
+      </header>
+      <p>Inloggad som <strong><%= currentUser ? currentUser.email : "okänd" %></strong></p>
+
+      <% if (error) { %>
+        <p class="message error"><%= error %></p>
+      <% } %>
+
+      <dialog id="user-settings-dialog" class="admin-meal-dialog">
+        <div class="dialog-head">
+          <h3>Användarinställningar</h3>
+          <button type="button" class="button secondary" onclick="document.getElementById('user-settings-dialog').close()">Stäng</button>
+        </div>
+
+        <% if (typeof settingsMessage !== "undefined" && settingsMessage) { %>
+          <p class="message success"><%= settingsMessage %></p>
+        <% } %>
+        <% if (typeof settingsError !== "undefined" && settingsError) { %>
+          <p class="message error"><%= settingsError %></p>
+        <% } %>
+
+        <h3>Uppdatera e-post</h3>
+        <form method="post" action="/backend/settings/email" class="settings-form">
+          <label for="email">Ny e-post</label>
+          <input id="email" name="email" type="email" value="<%= currentUser ? currentUser.email : '' %>" required />
+
+          <label for="emailCurrentPassword">Nuvarande lösenord</label>
+          <input id="emailCurrentPassword" name="currentPassword" type="password" required />
+
+          <button type="submit" class="button">Uppdatera e-post</button>
+        </form>
+
+        <h3>Byt lösenord</h3>
+        <form method="post" action="/backend/settings/password" class="settings-form">
+          <label for="passwordCurrent">Nuvarande lösenord</label>
+          <input id="passwordCurrent" name="currentPassword" type="password" required />
+
+          <label for="passwordNew">Nytt lösenord</label>
+          <input id="passwordNew" name="newPassword" type="password" minlength="8" required />
+
+          <label for="passwordConfirm">Bekräfta nytt lösenord</label>
+          <input id="passwordConfirm" name="confirmPassword" type="password" minlength="8" required />
+
+          <button type="submit" class="button">Byt lösenord</button>
+        </form>
+      </dialog>
+
+      <div class="two-col-grid top-tools-grid">
+        <section class="card compact-card">
+          <h2>Lägg till måltid</h2>
+          <form method="post" action="/backend/meals" class="settings-form">
+            <label for="mealName">Måltidsnamn</label>
+            <input id="mealName" type="text" name="name" placeholder="t.ex. Kycklinggryta" />
+            <label for="mealIngredients">Ingredienser (en per rad eller kommaseparerat)</label>
+            <textarea
+              id="mealIngredients"
+              name="ingredients"
+              rows="5"
+              placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
+            ></textarea>
+            <button type="submit" class="button">Lägg till</button>
+          </form>
+        </section>
+
+        <section class="card compact-card">
+          <h2>Generera slumpmässigt veckoschema</h2>
+          <form method="post" action="/backend/schedule/generate" class="form-row">
+            <label for="weekKey">Välj vecka:</label>
+            <select id="weekKey" name="weekKey">
+              <% weekOptions.forEach(function(option) { %>
+                <option value="<%= option.weekKey %>" <%= option.weekKey === selectedWeekKey ? "selected" : "" %>>
+                  <%= option.label %>
+                </option>
+              <% }) %>
+            </select>
+            <button type="submit" class="button">Generera</button>
+          </form>
+          <p>Skapar schema för tre veckor med start från vald vecka.</p>
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Måltidsdatabas</h2>
+        <% if (!meals.length) { %>
+          <p>Inga måltider ännu.</p>
+        <% } else { %>
+          <ul class="meal-list two-col-grid">
+            <% meals.forEach(function(meal) { %>
+              <li>
+                <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
+                  <%= meal.name %>
+                </button>
+
+                <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
+                  <div class="dialog-head">
+                    <h3><%= meal.name %></h3>
+                    <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
+                  </div>
+
+                  <% if (!meal.ingredients || !meal.ingredients.length) { %>
+                    <p>Inga ingredienser angivna.</p>
+                  <% } else { %>
+                    <ul>
+                      <% meal.ingredients.forEach(function(ingredient) { %>
+                        <li><%= ingredient %></li>
+                      <% }) %>
+                    </ul>
+                  <% } %>
+
+                  <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form">
+                    <label for="ingredients-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
+                    <textarea
+                      id="ingredients-<%= meal.id %>"
+                      name="ingredients"
+                      rows="5"
+                      placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
+                    ><%= (meal.ingredients || []).join('\n') %></textarea>
+                    <button type="submit" class="button secondary">Spara ingredienser</button>
+                  </form>
+                  <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form">
+                    <button type="submit" class="button danger">Ta bort måltid</button>
+                  </form>
+                </dialog>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </section>
+
+      <section class="card">
+        <h2>Genererade scheman</h2>
+        <% if (!schedules.length) { %>
+          <p>Inga scheman har genererats ännu.</p>
+        <% } else { %>
+          <div class="schedule-list">
+            <% schedules.forEach(function(schedule) { %>
+              <article class="schedule-week card compact-card">
+                <div class="schedule-header">
+                  <h3>Vecka <%= schedule.weekNumber %></h3>
+                  <form method="post" action="/backend/schedule/delete">
+                    <input type="hidden" name="scheduleId" value="<%= schedule.id %>" />
+                    <button type="submit" class="button danger icon-button" title="Ta bort vecka">🗑</button>
+                  </form>
+                </div>
+                <form method="post" action="/backend/schedule/<%= schedule.id %>/update" class="settings-form">
+                  <div class="week-days-grid">
+                    <% schedule.entries.forEach(function(entry, idx) { %>
+                      <div class="day-box">
+                        <div class="day-box-head">
+                          <strong><%= entry.day %></strong>
+                          <button type="submit" class="button secondary icon-button" name="randomIndex" value="<%= idx %>" title="Slumpa ny måltid">🎲</button>
+                        </div>
+                        <select name="mealIds[]">
+                          <option value="">Egen måltid</option>
+                          <% meals.forEach(function(meal) { %>
+                            <option value="<%= meal.id %>" <%= (entry.mealId === meal.id) ? "selected" : "" %>>
+                              <%= meal.name %>
+                            </option>
+                          <% }) %>
+                        </select>
+                        <input
+                          type="text"
+                          name="customMeals[]"
+                          placeholder="Egen måltid"
+                          value="<%= entry.mealId ? '' : (entry.mealName || '') %>"
+                        />
+                      </div>
+                    <% }) %>
+                  </div>
+                  <div class="week-save-row">
+                    <button type="submit" class="button secondary icon-button" title="Spara ändringar">💾</button>
+                  </div>
+                </form>
+              </article>
+            <% }) %>
+          </div>
+        <% } %>
+      </section>
+    </main>
+  </body>
+</html>

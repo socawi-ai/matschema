@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="sv">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,10 +7,14 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main>
+    <main class="container">
       <h1><%= appName %></h1>
-      <p>Framework scaffold is ready.</p>
-      <p>Try <code>/health</code> for a JSON health check.</p>
+      <p>Måltidsplanering med separata vyer för frontend och admin.</p>
+      <div class="actions">
+        <a class="button" href="/frontend">Öppna frontend</a>
+        <a class="button secondary" href="/backend">Öppna admin</a>
+      </div>
+      <p>Hälsokontroll: <code>/health</code></p>
     </main>
   </body>
 </html>
