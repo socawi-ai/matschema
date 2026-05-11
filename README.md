@@ -1,58 +1,79 @@
-# matschema
+# Matschema
 
-Meal planning web app built with Node.js + Express.
+Matschema är en webbapp för att planera veckans måltider.
 
-## Features
+## Vad appen gör
 
-- Frontend is the default view (`/`) and shows a 3-week meal schedule window.
-- Frontend navigation for previous/current/next 3-week windows.
-- Backend admin for:
-  - adding meals to a meal database
-  - generating randomized weekly schedules from saved meals
-  - updating the logged-in user email
-  - changing the logged-in user password
-- Backend is protected by login (session-based authentication).
-- User accounts stored in SQLite.
-- Local JSON storage for meals and generated schedules.
-- Health endpoint at `/health`.
+- Visar 3 veckor i frontend (nuvarande vecka + 2 kommande)
+- Visar ingredienser i popup när man klickar på en måltid
+- Har en admin/backend bakom inloggning för att:
+  - hantera måltidsdatabas
+  - generera och redigera veckoscheman
+  - hantera användarinställningar
 
-## Run locally
+## Teknik
 
-1. Install dependencies:
-   `npm install`
-2. Start server:
-   `npm start`
-3. Or restart server (auto-frees port `3000` first):
-   `npm run restart`
-4. Open:
-   `http://localhost:3000`
+- Node.js
+- Express
+- EJS
+- SQLite (användare)
+- JSON-filer (måltider och scheman)
 
-## Environment
+## Snabb setup
 
-Copy `.env.example` to `.env` and set:
-- `SESSION_SECRET` to a long random value (required in production)
+1. Klona repot
+```bash
+git clone https://github.com/socawi-ai/matschema.git
+cd matschema
+```
 
-## App views
+2. Installera beroenden
+```bash
+npm install
+```
 
-- Frontend (default): `http://localhost:3000/`
-- Frontend direct route: `http://localhost:3000/frontend`
-- Backend login: `http://localhost:3000/auth/login`
-- Backend admin (login required): `http://localhost:3000/backend`
-- Health: `http://localhost:3000/health`
+3. Skapa miljöfil
+```bash
+cp .env.example .env
+```
 
-## Backend login setup (SQLite users)
+4. Starta appen
+```bash
+npm start
+```
 
-1. Set admin credentials and create first user:
-   `ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=change-me npm run seed:admin`
-2. Start app:
-   `npm start`
-3. Sign in:
-   `http://localhost:3000/auth/login`
+5. Öppna i webbläsaren
+- Frontend: `http://localhost:3000/`
+- Login: `http://localhost:3000/auth/login`
+- Backend: `http://localhost:3000/backend`
 
-## Data storage
+## Skapa första admin
 
-- Users database: `data/matschema.sqlite`
-- Meals: `data/meals.json`
-- Generated schedules: `data/schedules.json`
+```bash
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=your-password npm run seed:admin
+```
 
-These files are ignored by git via `.gitignore`.
+## Första start (automatisk admin)
+
+Vid första uppstarten (om inga användare finns) skapas en admin automatiskt.
+Inloggningsuppgifter skrivs ut i server-loggen.
+
+Valfria variabler i `.env`:
+
+```env
+DEFAULT_ADMIN_EMAIL=admin@matschema.local
+DEFAULT_ADMIN_PASSWORD=valfritt-losenord
+```
+
+Om `DEFAULT_ADMIN_PASSWORD` saknas genererar appen ett slumpat lösenord och visar det i loggen.
+
+## Miljövariabler
+
+I `.env`:
+
+```env
+NODE_ENV=development
+PORT=3000
+SESSION_SECRET=replace-with-a-long-random-secret
+COOKIE_SECURE=false
+```

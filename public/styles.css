@@ -180,6 +180,24 @@ textarea {
   font-size: 0.98rem;
 }
 
+.meal-tag {
+  color: #5d6a80;
+  font-size: 0.8rem;
+}
+
+.inline-check {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.86rem;
+}
+
+.inline-check-group {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .meal-edit-form {
   margin-top: 0.8rem;
 }
@@ -230,7 +248,8 @@ textarea {
 }
 
 .ingredients-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(10, 20, 40, 0.24);
+  backdrop-filter: blur(6px);
 }
 
 .settings-form {
@@ -262,11 +281,19 @@ textarea {
 }
 
 .top-tools-grid {
+  display: grid;
+  gap: 0.45rem;
   align-items: start;
 }
 
 .schedule-header h3 {
   margin: 0;
+}
+
+.muted {
+  margin: 0.2rem 0 0.4rem;
+  color: #5d6a80;
+  font-size: 0.82rem;
 }
 
 .schedule-list {
@@ -280,7 +307,7 @@ textarea {
 
 .week-days-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 0.3rem;
 }
 
@@ -291,6 +318,14 @@ textarea {
   padding: 0.3rem;
   display: grid;
   gap: 0.2rem;
+}
+
+.day-box.row-top {
+  grid-column: span 3;
+}
+
+.day-box.row-bottom {
+  grid-column: span 4;
 }
 
 .day-box-head {
@@ -311,10 +346,78 @@ textarea {
   padding: 0.22rem 0.35rem;
 }
 
+.selected-meal {
+  font-size: 0.82rem;
+  color: #1c2430;
+  background: #f3f6fb;
+  border: 1px solid #dbe4f3;
+  border-radius: 6px;
+  padding: 0.22rem 0.3rem;
+  min-height: 1.5rem;
+}
+
+.day-picker-dialog {
+  border: 1px solid #d5deef;
+  border-radius: 12px;
+  width: min(640px, 94vw);
+  padding: 0.65rem;
+}
+
+.day-picker-dialog::backdrop {
+  background: rgba(10, 20, 40, 0.24);
+  backdrop-filter: blur(6px);
+}
+
+.tag-group {
+  margin-top: 0.45rem;
+}
+
+.tag-group h5 {
+  margin: 0 0 0.22rem;
+  font-size: 0.84rem;
+}
+
+.tag-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.22rem;
+}
+
+.custom-meal-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem;
+}
+
 .week-save-row {
   display: flex;
   justify-content: flex-end;
   margin-top: 0.3rem;
+}
+
+.autosave-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.78rem;
+  color: #5d6a80;
+}
+
+.day-choice-group {
+  border: 1px solid #dbe4f3;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem 0.4rem;
+  margin: 0.2rem 0;
+}
+
+.day-choice-group legend {
+  font-size: 0.84rem;
+  color: #1c2430;
+  padding: 0 0.25rem;
+}
+
+.day-check-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.22rem 0.5rem;
 }
 
 @media (max-width: 900px) {
@@ -323,6 +426,333 @@ textarea {
   }
 
   .week-days-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .day-check-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .day-box.row-top,
+  .day-box.row-bottom {
+    grid-column: auto;
+  }
+}
+
+/* Frontend visual refresh */
+.frontend-body {
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 500px at 0% -20%, rgba(44, 102, 242, 0.18), transparent 60%),
+    radial-gradient(1000px 400px at 100% -10%, rgba(36, 175, 120, 0.14), transparent 62%),
+    linear-gradient(180deg, #f7f9ff 0%, #eef3ff 100%);
+}
+
+.frontend-page {
+  width: min(1120px, 94vw);
+  margin: 1.1rem auto 1.6rem;
+}
+
+.frontend-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #d8e1f2;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 12px 34px rgba(24, 38, 70, 0.12);
+  backdrop-filter: blur(8px);
+}
+
+.frontend-eyebrow {
+  margin: 0 0 0.2rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #35509b;
+}
+
+.frontend-hero h1 {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  line-height: 1.15;
+}
+
+.frontend-lead {
+  margin: 0.35rem 0 0;
+  color: #4d5c79;
+  font-size: 0.94rem;
+  max-width: 62ch;
+}
+
+.frontend-admin-button {
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 0.45rem 0.74rem;
+}
+
+.frontend-weeks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.frontend-week-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #d9e2f5;
+  border-radius: 14px;
+  padding: 0.75rem;
+  box-shadow: 0 10px 26px rgba(24, 38, 70, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.frontend-week-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  margin-bottom: 0.5rem;
+}
+
+.frontend-week-head h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.frontend-pill {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #264b8f;
+  background: #e4eeff;
+  border: 1px solid #bfd5ff;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+}
+
+.frontend-day-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.36rem;
+}
+
+.frontend-day-item {
+  display: grid;
+  grid-template-columns: 5.1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.38rem;
+  border: 1px solid #e4eaf7;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  padding: 0.33rem 0.43rem;
+}
+
+.frontend-day-name {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #3c4d71;
+}
+
+.frontend-meal-wrap {
+  min-width: 0;
+}
+
+.frontend-meal-button,
+.frontend-plain-meal {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.7rem;
+  border-radius: 8px;
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.frontend-meal-button {
+  border: 1px solid #c7d7fb;
+  background: #edf3ff;
+  color: #17366e;
+  padding: 0.25rem 0.45rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.frontend-meal-button:hover {
+  background: #dfebff;
+  border-color: #a9c2fb;
+}
+
+.frontend-plain-meal {
+  border: 1px solid #d8e2f5;
+  background: #f4f7fc;
+  color: #354764;
+  padding: 0.25rem 0.45rem;
+}
+
+.frontend-ingredients-dialog {
+  border-color: #c6d6f6;
+  box-shadow: 0 20px 54px rgba(8, 19, 42, 0.28);
+}
+
+.frontend-ingredients-dialog::backdrop {
+  background: rgba(10, 20, 40, 0.28);
+  backdrop-filter: blur(10px);
+}
+
+@media (max-width: 980px) {
+  .frontend-weeks-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .frontend-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.frontend-theme-toggle {
+  border-radius: 10px;
+  font-weight: 600;
+}
+
+[data-theme="dark"] .frontend-body {
+  background:
+    radial-gradient(1100px 460px at 5% -20%, rgba(80, 120, 220, 0.2), transparent 60%),
+    radial-gradient(900px 400px at 100% -10%, rgba(50, 160, 125, 0.16), transparent 62%),
+    linear-gradient(180deg, #0c1322 0%, #0f1a2d 100%);
+  color: #e8eefb;
+}
+
+[data-theme="dark"] .frontend-hero {
+  background: rgba(22, 32, 52, 0.78);
+  border-color: #31446b;
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .frontend-eyebrow {
+  color: #95b6ff;
+}
+
+[data-theme="dark"] .frontend-lead {
+  color: #b8c9e8;
+}
+
+[data-theme="dark"] .frontend-week-card {
+  background: rgba(20, 30, 48, 0.85);
+  border-color: #33486f;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .frontend-week-head h2,
+[data-theme="dark"] .frontend-day-name {
+  color: #e7efff;
+}
+
+[data-theme="dark"] .frontend-pill {
+  color: #b5ccff;
+  background: rgba(60, 96, 168, 0.32);
+  border-color: #587cc0;
+}
+
+[data-theme="dark"] .frontend-day-item {
+  border-color: #32486f;
+  background: linear-gradient(180deg, #18263f 0%, #142139 100%);
+}
+
+[data-theme="dark"] .frontend-meal-button {
+  border-color: #4b68a3;
+  background: #263b62;
+  color: #eef4ff;
+}
+
+[data-theme="dark"] .frontend-meal-button:hover {
+  background: #314a7a;
+  border-color: #6c8fd3;
+}
+
+[data-theme="dark"] .frontend-plain-meal {
+  border-color: #425a85;
+  background: #223555;
+  color: #dbe7fb;
+}
+
+[data-theme="dark"] .frontend-ingredients-dialog {
+  border-color: #46639d;
+  background: #14213a;
+  color: #ecf2ff;
+}
+
+[data-theme="dark"] .frontend-ingredients-dialog::backdrop {
+  background: rgba(2, 8, 20, 0.5);
+  backdrop-filter: blur(10px);
+}
+
+[data-theme="dark"] .button.secondary {
+  background: #1f3356;
+  color: #e6efff;
+  border-color: #5275b8;
+}
+
+.frontend-week-current {
+  border-color: #e9c25d;
+  background: linear-gradient(180deg, #fff9e7 0%, #fff3d4 100%);
+  box-shadow:
+    0 12px 28px rgba(193, 139, 22, 0.22),
+    0 0 0 1px rgba(233, 194, 93, 0.22) inset;
+}
+
+.frontend-week-current .frontend-week-head h2 {
+  color: #7b5711;
+}
+
+.frontend-week-current .frontend-day-item {
+  border-color: #efdca8;
+  background: linear-gradient(180deg, #fffdfa 0%, #fff7e6 100%);
+}
+
+.frontend-week-current .frontend-day-name {
+  color: #734f0f;
+}
+
+[data-theme="dark"] .frontend-week-current {
+  border-color: #d6b157;
+  background: linear-gradient(180deg, rgba(110, 80, 22, 0.44) 0%, rgba(85, 62, 16, 0.52) 100%);
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.4),
+    0 0 0 1px rgba(214, 177, 87, 0.35) inset;
+}
+
+[data-theme="dark"] .frontend-week-current .frontend-week-head h2,
+[data-theme="dark"] .frontend-week-current .frontend-day-name {
+  color: #ffe8b2;
+}
+
+[data-theme="dark"] .frontend-week-current .frontend-day-item {
+  border-color: rgba(214, 177, 87, 0.4);
+  background: linear-gradient(180deg, rgba(58, 43, 14, 0.6) 0%, rgba(52, 38, 12, 0.72) 100%);
+}
+
+/* Frontend scroll/render stability fix */
+html {
+  background: #eef3ff;
+}
+
+[data-theme="dark"] {
+  background: #0f1a2d;
+}
+
+.frontend-body {
+  overflow-x: hidden;
+}
+
+/* Backdrop blur can cause sticky paint artifacts on some browsers during scroll */
+.frontend-hero,
+.frontend-week-card {
+  backdrop-filter: none;
 }

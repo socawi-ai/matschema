@@ -66,12 +66,26 @@
         </form>
       </dialog>
 
-      <div class="two-col-grid top-tools-grid">
-        <section class="card compact-card">
+      <div class="top-tools-grid">
+        <section class="card compact-card" id="card-add-meal" data-preserve-anchor>
           <h2>Lägg till måltid</h2>
-          <form method="post" action="/backend/meals" class="settings-form">
+          <form method="post" action="/backend/meals" class="settings-form" data-async data-refresh-target="#card-meal-database">
             <label for="mealName">Måltidsnamn</label>
             <input id="mealName" type="text" name="name" placeholder="t.ex. Kycklinggryta" />
+            <div class="inline-check-group">
+              <label class="inline-check">
+                <input type="checkbox" name="isVegetarian" />
+                🥕 Vegetarisk
+              </label>
+              <label class="inline-check">
+                <input type="checkbox" name="isFish" />
+                🐟 Fisk
+              </label>
+            </div>
+            <label class="inline-check">
+              <input type="checkbox" name="special" />
+              ⭐ Specialmåltid (för fredagar/lördagar)
+            </label>
             <label for="mealIngredients">Ingredienser (en per rad eller kommaseparerat)</label>
             <textarea
               id="mealIngredients"
@@ -82,115 +96,275 @@
             <button type="submit" class="button">Lägg till</button>
           </form>
         </section>
-
         <section class="card compact-card">
-          <h2>Generera slumpmässigt veckoschema</h2>
-          <form method="post" action="/backend/schedule/generate" class="form-row">
-            <label for="weekKey">Välj vecka:</label>
-            <select id="weekKey" name="weekKey">
-              <% weekOptions.forEach(function(option) { %>
-                <option value="<%= option.weekKey %>" <%= option.weekKey === selectedWeekKey ? "selected" : "" %>>
-                  <%= option.label %>
-                </option>
-              <% }) %>
-            </select>
-            <button type="submit" class="button">Generera</button>
+          <h2>Planeringsregler</h2>
+          <form id="planning-rules-form" method="post" action="/backend/rules" class="settings-form" data-async data-autosave>
+            <label for="planningHorizonWeeks">Antal veckor framåt</label>
+            <input id="planningHorizonWeeks" type="number" min="1" max="12" name="planningHorizonWeeks" value="<%= rules.planningHorizonWeeks %>" />
+
+            <p class="muted">Fiskdag: Slumpas till en dag mellan måndag och torsdag varje vecka.</p>
+
+            <label for="vegetarianMealsPerWeek">Vegetariska måltider per vecka</label>
+            <input id="vegetarianMealsPerWeek" type="number" min="0" max="7" name="vegetarianMealsPerWeek" value="<%= rules.vegetarianMealsPerWeek %>" />
+
+            <label for="fishMealsPerWeek">Fiskmåltider per vecka</label>
+            <input id="fishMealsPerWeek" type="number" min="0" max="7" name="fishMealsPerWeek" value="<%= rules.fishMealsPerWeek %>" />
+
+            <fieldset class="day-choice-group">
+              <legend>Specialdagar</legend>
+              <div class="day-check-grid">
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Måndag" <%= rules.specialDays.includes('Måndag') ? 'checked' : '' %> /> Måndag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Tisdag" <%= rules.specialDays.includes('Tisdag') ? 'checked' : '' %> /> Tisdag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Onsdag" <%= rules.specialDays.includes('Onsdag') ? 'checked' : '' %> /> Onsdag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Torsdag" <%= rules.specialDays.includes('Torsdag') ? 'checked' : '' %> /> Torsdag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Fredag" <%= rules.specialDays.includes('Fredag') ? 'checked' : '' %> /> Fredag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Lördag" <%= rules.specialDays.includes('Lördag') ? 'checked' : '' %> /> Lördag</label>
+                <label class="inline-check"><input type="checkbox" name="specialDays" value="Söndag" <%= rules.specialDays.includes('Söndag') ? 'checked' : '' %> /> Söndag</label>
+              </div>
+            </fieldset>
+
+            <fieldset class="day-choice-group">
+              <legend>Dagar för vegetariskt</legend>
+              <div class="day-check-grid">
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Måndag" <%= rules.vegetarianAllowedDays.includes('Måndag') ? 'checked' : '' %> /> Måndag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Tisdag" <%= rules.vegetarianAllowedDays.includes('Tisdag') ? 'checked' : '' %> /> Tisdag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Onsdag" <%= rules.vegetarianAllowedDays.includes('Onsdag') ? 'checked' : '' %> /> Onsdag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Torsdag" <%= rules.vegetarianAllowedDays.includes('Torsdag') ? 'checked' : '' %> /> Torsdag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Fredag" <%= rules.vegetarianAllowedDays.includes('Fredag') ? 'checked' : '' %> /> Fredag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Lördag" <%= rules.vegetarianAllowedDays.includes('Lördag') ? 'checked' : '' %> /> Lördag</label>
+                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Söndag" <%= rules.vegetarianAllowedDays.includes('Söndag') ? 'checked' : '' %> /> Söndag</label>
+              </div>
+            </fieldset>
+
+            <label class="inline-check">
+              <input type="checkbox" name="sameSpecialAcrossSpecialDays" <%= rules.sameSpecialAcrossSpecialDays ? 'checked' : '' %> />
+              Samma specialmåltid på alla specialdagar
+            </label>
+
+            <p class="autosave-hint" id="rules-autosave-status">Ändringar sparas automatiskt.</p>
           </form>
-          <p>Skapar schema för tre veckor med start från vald vecka.</p>
         </section>
       </div>
 
-      <section class="card">
+      <section class="card" id="card-meal-database" data-preserve-anchor>
         <h2>Måltidsdatabas</h2>
-        <% if (!meals.length) { %>
+        <% if (!regularMeals.length && !specialMeals.length) { %>
           <p>Inga måltider ännu.</p>
         <% } else { %>
-          <ul class="meal-list two-col-grid">
-            <% meals.forEach(function(meal) { %>
-              <li>
-                <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
-                  <%= meal.name %>
-                </button>
+          <div class="two-col-grid">
+            <div>
+              <h3>Vanliga måltider</h3>
+              <ul class="meal-list">
+                <% regularMeals.forEach(function(meal) { %>
+                  <li id="meal-<%= meal.id %>" data-preserve-anchor>
+                    <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
+                      <%= meal.name %> <span class="meal-tag"><%= meal.tag === 'vegetarian' ? '🥕' : (meal.tag === 'fish' ? '🐟' : '🍽') %><%= (meal.tags || []).includes('special') ? '⭐' : '' %></span>
+                    </button>
 
-                <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
-                  <div class="dialog-head">
-                    <h3><%= meal.name %></h3>
-                    <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
-                  </div>
+                    <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
+                      <div class="dialog-head">
+                        <h3><%= meal.name %></h3>
+                        <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
+                      </div>
 
-                  <% if (!meal.ingredients || !meal.ingredients.length) { %>
-                    <p>Inga ingredienser angivna.</p>
-                  <% } else { %>
-                    <ul>
-                      <% meal.ingredients.forEach(function(ingredient) { %>
-                        <li><%= ingredient %></li>
-                      <% }) %>
-                    </ul>
-                  <% } %>
+                      <% if (!meal.ingredients || !meal.ingredients.length) { %>
+                        <p>Inga ingredienser angivna.</p>
+                      <% } else { %>
+                        <ul>
+                          <% meal.ingredients.forEach(function(ingredient) { %>
+                            <li><%= ingredient %></li>
+                          <% }) %>
+                        </ul>
+                      <% } %>
 
-                  <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form">
-                    <label for="ingredients-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
-                    <textarea
-                      id="ingredients-<%= meal.id %>"
-                      name="ingredients"
-                      rows="5"
-                      placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
-                    ><%= (meal.ingredients || []).join('\n') %></textarea>
-                    <button type="submit" class="button secondary">Spara ingredienser</button>
-                  </form>
-                  <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form">
-                    <button type="submit" class="button danger">Ta bort måltid</button>
-                  </form>
-                </dialog>
-              </li>
-            <% }) %>
-          </ul>
+                      <form method="post" action="/backend/meals/<%= meal.id %>/meta" class="settings-form" data-async data-refresh-target="#card-meal-database">
+                        <div class="inline-check-group">
+                          <label class="inline-check">
+                            <input type="checkbox" name="isVegetarian" <%= meal.tag === 'vegetarian' ? 'checked' : '' %> />
+                            🥕 Vegetarisk
+                          </label>
+                          <label class="inline-check">
+                            <input type="checkbox" name="isFish" <%= meal.tag === 'fish' ? 'checked' : '' %> />
+                            🐟 Fisk
+                          </label>
+                        </div>
+                        <label class="inline-check">
+                          <input type="checkbox" name="special" <%= meal.special ? 'checked' : '' %> />
+                          ⭐ Specialmåltid
+                        </label>
+                        <button type="submit" class="button secondary">Spara taggar</button>
+                      </form>
+
+                      <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form" data-async data-refresh-target="#card-meal-database">
+                        <label for="ingredients-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
+                        <textarea
+                          id="ingredients-<%= meal.id %>"
+                          name="ingredients"
+                          rows="5"
+                          placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
+                        ><%= (meal.ingredients || []).join('\n') %></textarea>
+                        <button type="submit" class="button secondary">Spara ingredienser</button>
+                      </form>
+                      <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form" data-async data-refresh-target="#card-meal-database">
+                        <button type="submit" class="button danger">Ta bort måltid</button>
+                      </form>
+                    </dialog>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+            <div>
+              <h3>Specialmåltider</h3>
+              <ul class="meal-list">
+                <% specialMeals.forEach(function(meal) { %>
+                  <li id="meal-<%= meal.id %>" data-preserve-anchor>
+                    <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
+                      <%= meal.name %> <span class="meal-tag"><%= meal.tag === 'vegetarian' ? '🥕' : (meal.tag === 'fish' ? '🐟' : '🍽') %><%= (meal.tags || []).includes('special') ? '⭐' : '' %></span>
+                    </button>
+                    <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
+                      <div class="dialog-head">
+                        <h3><%= meal.name %></h3>
+                        <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
+                      </div>
+
+                      <% if (!meal.ingredients || !meal.ingredients.length) { %>
+                        <p>Inga ingredienser angivna.</p>
+                      <% } else { %>
+                        <ul>
+                          <% meal.ingredients.forEach(function(ingredient) { %>
+                            <li><%= ingredient %></li>
+                          <% }) %>
+                        </ul>
+                      <% } %>
+
+                      <form method="post" action="/backend/meals/<%= meal.id %>/meta" class="settings-form" data-async data-refresh-target="#card-meal-database">
+                        <div class="inline-check-group">
+                          <label class="inline-check">
+                            <input type="checkbox" name="isVegetarian" <%= meal.tag === 'vegetarian' ? 'checked' : '' %> />
+                            🥕 Vegetarisk
+                          </label>
+                          <label class="inline-check">
+                            <input type="checkbox" name="isFish" <%= meal.tag === 'fish' ? 'checked' : '' %> />
+                            🐟 Fisk
+                          </label>
+                        </div>
+                        <label class="inline-check">
+                          <input type="checkbox" name="special" <%= meal.special ? 'checked' : '' %> />
+                          ⭐ Specialmåltid
+                        </label>
+                        <button type="submit" class="button secondary">Spara taggar</button>
+                      </form>
+
+                      <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form" data-async data-refresh-target="#card-meal-database">
+                        <label for="ingredients-special-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
+                        <textarea
+                          id="ingredients-special-<%= meal.id %>"
+                          name="ingredients"
+                          rows="5"
+                          placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
+                        ><%= (meal.ingredients || []).join('\n') %></textarea>
+                        <button type="submit" class="button secondary">Spara ingredienser</button>
+                      </form>
+                      <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form" data-async data-refresh-target="#card-meal-database">
+                        <button type="submit" class="button danger">Ta bort måltid</button>
+                      </form>
+                    </dialog>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+          </div>
         <% } %>
       </section>
 
-      <section class="card">
-        <h2>Genererade scheman</h2>
+      <section class="card" id="card-generated-schedules" data-preserve-anchor>
+        <div class="schedule-header">
+          <h2>Genererade scheman</h2>
+          <form method="post" action="/backend/schedule/generate" data-async data-refresh-target="#card-generated-schedules">
+            <button type="submit" class="button" title="Fyll kommande 3 veckor">Fyll kommande 3 veckor</button>
+          </form>
+        </div>
+        <p class="muted">Fyller innevarande vecka och två kommande veckor.</p>
         <% if (!schedules.length) { %>
           <p>Inga scheman har genererats ännu.</p>
         <% } else { %>
           <div class="schedule-list">
             <% schedules.forEach(function(schedule) { %>
-              <article class="schedule-week card compact-card">
+              <article class="schedule-week card compact-card" id="schedule-<%= schedule.id %>" data-preserve-anchor>
                 <div class="schedule-header">
                   <h3>Vecka <%= schedule.weekNumber %></h3>
-                  <form method="post" action="/backend/schedule/delete">
+                  <form method="post" action="/backend/schedule/delete" data-async data-refresh-target="#card-generated-schedules">
                     <input type="hidden" name="scheduleId" value="<%= schedule.id %>" />
                     <button type="submit" class="button danger icon-button" title="Ta bort vecka">🗑</button>
                   </form>
                 </div>
-                <form method="post" action="/backend/schedule/<%= schedule.id %>/update" class="settings-form">
+                <form method="post" action="/backend/schedule/<%= schedule.id %>/update" class="settings-form" data-autosave data-async data-refresh-target="#card-generated-schedules">
                   <div class="week-days-grid">
                     <% schedule.entries.forEach(function(entry, idx) { %>
-                      <div class="day-box">
+                      <div class="day-box <%= idx < 4 ? 'row-top' : 'row-bottom' %>">
                         <div class="day-box-head">
                           <strong><%= entry.day %></strong>
                           <button type="submit" class="button secondary icon-button" name="randomIndex" value="<%= idx %>" title="Slumpa ny måltid">🎲</button>
                         </div>
-                        <select name="mealIds[]">
-                          <option value="">Egen måltid</option>
-                          <% meals.forEach(function(meal) { %>
-                            <option value="<%= meal.id %>" <%= (entry.mealId === meal.id) ? "selected" : "" %>>
-                              <%= meal.name %>
-                            </option>
-                          <% }) %>
-                        </select>
-                        <input
-                          type="text"
-                          name="customMeals[]"
-                          placeholder="Egen måltid"
-                          value="<%= entry.mealId ? '' : (entry.mealName || '') %>"
-                        />
+                        <input type="hidden" name="mealIds[]" value="<%= entry.mealId || '' %>" />
+                        <input type="hidden" name="customMeals[]" value="<%= entry.mealId ? '' : (entry.mealName || '') %>" />
+                        <div class="selected-meal"><%= entry.mealName %></div>
+                        <button type="button" class="button secondary open-day-picker" data-dialog-id="picker-<%= schedule.id %>-<%= idx %>">Välj</button>
+
+                        <dialog id="picker-<%= schedule.id %>-<%= idx %>" class="day-picker-dialog">
+                          <div class="dialog-head">
+                            <h4><%= entry.day %> - välj måltid</h4>
+                            <button type="button" class="button secondary close-day-picker">Stäng</button>
+                          </div>
+
+                          <div class="tag-group">
+                            <h5>⭐ Special</h5>
+                            <div class="tag-buttons">
+                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('special')) { %>
+                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
+                              <% } }) %>
+                            </div>
+                          </div>
+
+                          <div class="tag-group">
+                            <h5>🥕 Vegetariskt</h5>
+                            <div class="tag-buttons">
+                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('vegetarian')) { %>
+                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
+                              <% } }) %>
+                            </div>
+                          </div>
+
+                          <div class="tag-group">
+                            <h5>🐟 Fisk</h5>
+                            <div class="tag-buttons">
+                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('fish')) { %>
+                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
+                              <% } }) %>
+                            </div>
+                          </div>
+
+                          <div class="tag-group">
+                            <h5>🍽 Regular</h5>
+                            <div class="tag-buttons">
+                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('regular')) { %>
+                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
+                              <% } }) %>
+                            </div>
+                          </div>
+
+                          <div class="tag-group">
+                            <h5>Egen måltid</h5>
+                            <div class="custom-meal-row">
+                              <input type="text" class="custom-meal-input" placeholder="Skriv egen måltid" />
+                              <button type="button" class="button save-custom-btn">Spara</button>
+                            </div>
+                          </div>
+                        </dialog>
                       </div>
                     <% }) %>
                   </div>
-                  <div class="week-save-row">
-                    <button type="submit" class="button secondary icon-button" title="Spara ändringar">💾</button>
-                  </div>
+                  <p class="autosave-hint">Ändringar sparas automatiskt.</p>
                 </form>
               </article>
             <% }) %>
@@ -198,5 +372,252 @@
         <% } %>
       </section>
     </main>
+    <script>
+      (function () {
+        const STORAGE_KEY = 'backend_anchor_restore';
+        const FALLBACK_KEY = 'backend_anchor_restore_fallback';
+        const MAIN = document.querySelector('main.page');
+        const isMealAction = (form) => /\/backend\/meals(\/|$)/.test(form.action || '');
+
+        async function replaceSection(selector) {
+          const response = await fetch('/backend', { headers: { 'X-Requested-With': 'fetch' } });
+          const html = await response.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const fresh = doc.querySelector(selector);
+          const current = document.querySelector(selector);
+          if (fresh && current) {
+            current.replaceWith(fresh);
+          }
+        }
+
+        function saveAnchorFromForm(form) {
+          if (isMealAction(form)) {
+            return;
+          }
+          const anchor =
+            form.closest('[data-preserve-anchor]') ||
+            document.getElementById('card-generated-schedules') ||
+            MAIN;
+          if (anchor && anchor.id) {
+            sessionStorage.setItem(STORAGE_KEY, anchor.id);
+            sessionStorage.setItem(FALLBACK_KEY, 'card-generated-schedules');
+          }
+        }
+
+        // For normal meal-database submits (non-async), avoid stale anchor restore after reload.
+        document.addEventListener(
+          'submit',
+          (event) => {
+            const form = event.target;
+            if (!form || form.tagName !== 'FORM') return;
+            if (form.matches('form[data-async]')) return;
+            if (!isMealAction(form)) return;
+            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(FALLBACK_KEY);
+          },
+          true
+        );
+
+        function restoreAnchor() {
+          const anchorId = sessionStorage.getItem(STORAGE_KEY);
+          const fallbackId = sessionStorage.getItem(FALLBACK_KEY);
+          if (!anchorId) return;
+
+          const target = document.getElementById(anchorId) || (fallbackId ? document.getElementById(fallbackId) : null);
+          if (target) {
+            target.scrollIntoView({ block: 'start', behavior: 'auto' });
+          }
+          sessionStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem(FALLBACK_KEY);
+        }
+
+        async function submitAsyncForm(form, submitter) {
+          const shouldRestoreAnchor = !form.matches('[data-autosave]') && !isMealAction(form);
+          if (shouldRestoreAnchor) {
+            saveAnchorFromForm(form);
+          }
+          const fd = new FormData(form);
+          const ignoreSubmitter = form.dataset.ignoreSubmitter === '1';
+          if (!ignoreSubmitter && submitter && submitter.name) {
+            fd.append(submitter.name, submitter.value || '');
+          }
+          delete form.dataset.ignoreSubmitter;
+          const body = new URLSearchParams(fd);
+
+          const response = await fetch(form.action, {
+            method: 'POST',
+            body,
+            headers: { 'X-Requested-With': 'fetch' }
+          });
+
+          if (!response.ok) {
+            // Keep the app responsive; if server returns validation page, refresh only schedule section if possible.
+            const refreshTarget = form.dataset.refreshTarget || '#card-generated-schedules';
+            await replaceSection(refreshTarget);
+            if (shouldRestoreAnchor) {
+              restoreAnchor();
+            }
+            form.dispatchEvent(new CustomEvent('async:done', { bubbles: true, detail: { ok: false } }));
+            return;
+          }
+
+          const refreshTarget = form.dataset.refreshTarget;
+          if (refreshTarget) {
+            await replaceSection(refreshTarget);
+          }
+
+          if (shouldRestoreAnchor) {
+            restoreAnchor();
+          }
+          form.dispatchEvent(new CustomEvent('async:done', { bubbles: true, detail: { ok: true } }));
+        }
+
+        // Capture all async-form submits globally so behavior survives dynamic DOM replacement.
+        document.addEventListener(
+          'submit',
+          async (event) => {
+            const form = event.target;
+            if (!form || form.tagName !== 'FORM') return;
+            if (!form.matches('form[data-async]')) return;
+
+            event.preventDefault();
+            try {
+              await submitAsyncForm(form, event.submitter);
+            } catch (_err) {
+              // Fallback: never block user actions if async handling fails.
+              form.removeAttribute('data-async');
+              form.submit();
+            }
+          },
+          true
+        );
+
+        document.addEventListener('click', (event) => {
+          const openBtn = event.target.closest('.open-day-picker');
+          if (openBtn) {
+            const dialog = document.getElementById(openBtn.dataset.dialogId);
+            if (dialog) dialog.showModal();
+            return;
+          }
+
+          const closeBtn = event.target.closest('.close-day-picker');
+          if (closeBtn) {
+            const dialog = closeBtn.closest('dialog');
+            if (dialog) dialog.close();
+            return;
+          }
+
+          const pickBtn = event.target.closest('.pick-meal-btn');
+          if (pickBtn) {
+            const dialog = pickBtn.closest('dialog');
+            const dayBox = dialog ? dialog.closest('.day-box') : null;
+            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
+            if (!dayBox || !form) return;
+
+            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
+            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
+            const label = dayBox.querySelector('.selected-meal');
+            mealIdInput.value = pickBtn.dataset.mealId || '';
+            customInput.value = '';
+            if (label) label.textContent = pickBtn.dataset.mealName || '';
+            if (dialog) dialog.close();
+            form.dataset.ignoreSubmitter = '1';
+            form.requestSubmit();
+            return;
+          }
+
+          const customSaveBtn = event.target.closest('.save-custom-btn');
+          if (customSaveBtn) {
+            const dialog = customSaveBtn.closest('dialog');
+            const dayBox = dialog ? dialog.closest('.day-box') : null;
+            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
+            if (!dayBox || !form) return;
+
+            const customField = dialog.querySelector('.custom-meal-input');
+            const value = customField ? customField.value.trim() : '';
+            if (!value) return;
+
+            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
+            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
+            const label = dayBox.querySelector('.selected-meal');
+            mealIdInput.value = '';
+            customInput.value = value;
+            if (label) label.textContent = value;
+            if (dialog) dialog.close();
+            form.dataset.ignoreSubmitter = '1';
+            form.requestSubmit();
+            return;
+          }
+        });
+
+        // Allow Enter in "Egen måltid" field to save directly.
+        document.addEventListener('keydown', (event) => {
+          const input = event.target;
+          if (!input || input.tagName !== 'INPUT') return;
+          if (!input.classList.contains('custom-meal-input')) return;
+          if (event.key !== 'Enter') return;
+
+          event.preventDefault();
+          const dialog = input.closest('dialog');
+          const saveBtn = dialog ? dialog.querySelector('.save-custom-btn') : null;
+          if (saveBtn) saveBtn.click();
+        });
+
+        // Tag checkboxes behave like a compact exclusive choice.
+        document.addEventListener('change', (event) => {
+          const input = event.target;
+          if (!input || input.tagName !== 'INPUT') return;
+          if (input.name !== 'isVegetarian' && input.name !== 'isFish') return;
+          if (!input.checked) return;
+
+          const form = input.closest('form');
+          if (!form) return;
+          const otherName = input.name === 'isVegetarian' ? 'isFish' : 'isVegetarian';
+          const other = form.querySelector(`input[name="${otherName}"]`);
+          if (other) other.checked = false;
+        });
+
+        const rulesForm = document.getElementById('planning-rules-form');
+        const rulesStatus = document.getElementById('rules-autosave-status');
+        if (rulesForm) {
+          let autosaveTimer = null;
+          let lastSavedTimer = null;
+
+          const queueRulesAutosave = () => {
+            if (rulesStatus) {
+              rulesStatus.textContent = 'Sparar...';
+            }
+            if (autosaveTimer) {
+              clearTimeout(autosaveTimer);
+            }
+            autosaveTimer = setTimeout(() => {
+              rulesForm.dataset.ignoreSubmitter = '1';
+              rulesForm.requestSubmit();
+            }, 350);
+          };
+
+          rulesForm.addEventListener('input', queueRulesAutosave);
+          rulesForm.addEventListener('change', queueRulesAutosave);
+
+          rulesForm.addEventListener('async:done', (event) => {
+            if (!rulesStatus) return;
+            if (!event.detail || !event.detail.ok) {
+              rulesStatus.textContent = 'Kunde inte autospara. Försök igen.';
+              return;
+            }
+            rulesStatus.textContent = 'Sparat.';
+            if (lastSavedTimer) {
+              clearTimeout(lastSavedTimer);
+            }
+            lastSavedTimer = setTimeout(() => {
+              rulesStatus.textContent = 'Ändringar sparas automatiskt.';
+            }, 1500);
+          });
+        }
+
+        restoreAnchor();
+      })();
+    </script>
   </body>
 </html>

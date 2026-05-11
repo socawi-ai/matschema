@@ -32,6 +32,14 @@ async function getDb() {
       created_at TEXT NOT NULL
     )
   `);
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_rules (
+      user_id INTEGER PRIMARY KEY,
+      rules_json TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
 
   return db;
 }
@@ -44,6 +52,12 @@ async function findUserByEmail(email) {
 async function findUserById(id) {
   const db = await getDb();
   return db.get('SELECT * FROM users WHERE id = ?', id);
+}
+
+async function countUsers() {
+  const db = await getDb();
+  const row = await db.get('SELECT COUNT(*) AS count FROM users');
+  return row ? Number(row.count || 0) : 0;
 }
 
 async function createUser({ email, passwordHash, role = 'admin' }) {
@@ -71,11 +85,43 @@ async function updateUserPasswordHash(id, passwordHash) {
   return findUserById(id);
 }
 
+async function getRulesByUserId(userId) {
+  const db = await getDb();
+  const row = await db.get('SELECT rules_json FROM user_rules WHERE user_id = ?', userId);
+  if (!row) return null;
+  try {
+    return JSON.parse(row.rules_json);
+  } catch {
+    return null;
+  }
+}
+
+async function upsertRulesByUserId(userId, rules) {
+  const db = await getDb();
+  const updatedAt = new Date().toISOString();
+  await db.run(
+    `
+      INSERT INTO user_rules (user_id, rules_json, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        rules_json = excluded.rules_json,
+        updated_at = excluded.updated_at
+    `,
+    userId,
+    JSON.stringify(rules),
+    updatedAt
+  );
+  return getRulesByUserId(userId);
+}
+
 module.exports = {
+  countUsers,
   createUser,
   findUserByEmail,
   findUserById,
+  getRulesByUserId,
   getDb,
+  upsertRulesByUserId,
   updateUserEmail,
   updateUserPasswordHash
 };
