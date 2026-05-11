@@ -6,12 +6,8 @@ const { buildThreeWeekView } = require('../utils/scheduler');
 const router = express.Router();
 
 router.get('/', (req, res) => {
-  const offsetWeeks = Number.parseInt(req.query.offset || '0', 10);
-  const baseDate = new Date();
-  baseDate.setDate(baseDate.getDate() + offsetWeeks * 7);
-
   const schedules = getSchedules();
-  const weeks = buildThreeWeekView(schedules, baseDate);
+  const weeks = buildThreeWeekView(schedules, new Date());
   const meals = getMeals();
   const mealsById = new Map(meals.map((meal) => [meal.id, meal]));
 
@@ -27,8 +23,7 @@ router.get('/', (req, res) => {
   }));
 
   res.render('frontend', {
-    weeks: weeksWithIngredients,
-    offsetWeeks
+    weeks: weeksWithIngredients
   });
 });
 

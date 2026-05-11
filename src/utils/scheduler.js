@@ -103,6 +103,7 @@ function buildThreeWeekView(schedules, baseDate = new Date()) {
 
 module.exports = {
   buildThreeWeekView,
+  DAYS,
   generateRandomWeekSchedule,
   getISOWeekNumber,
   getISOWeekYear,
