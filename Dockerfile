@@ -26,9 +26,7 @@ COPY public ./public
 COPY src ./src
 COPY views ./views
 
-RUN mkdir -p /app/data && chown -R node:node /app
-
-USER node
+RUN mkdir -p /app/data
 
 ENV PORT=3000
 EXPOSE 3000
