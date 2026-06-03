@@ -22,7 +22,7 @@ const {
 const {
   getRulesByUserId,
   upsertRulesByUserId,
-  updateUserEmail,
+  updateUsername,
   updateUserPasswordHash
 } = require('../db');
 
@@ -443,14 +443,14 @@ router.post('/rules', async (req, res) => {
   return res.redirect('/backend');
 });
 
-router.post('/settings/email', async (req, res, next) => {
+router.post('/settings/username', async (req, res, next) => {
   try {
-    const nextEmail = (req.body.email || '').trim().toLowerCase();
+    const nextUsername = (req.body.username || req.body.email || '').trim().toLowerCase();
     const currentPassword = req.body.currentPassword || '';
 
-    if (!nextEmail || !currentPassword) {
+    if (!nextUsername || !currentPassword) {
       return await renderBackend(req, res, {
-        settingsError: 'E-post och nuvarande lösenord måste fyllas i.'
+        settingsError: 'Användarnamn och nuvarande lösenord måste fyllas i.'
       });
     }
 
@@ -462,14 +462,51 @@ router.post('/settings/email', async (req, res, next) => {
     }
 
     try {
-      await updateUserEmail(req.currentUser.id, nextEmail);
+      await updateUsername(req.currentUser.id, nextUsername);
       return await renderBackend(req, res, {
-        settingsMessage: 'E-postadressen har uppdaterats.'
+        settingsMessage: 'Användarnamnet har uppdaterats.'
       });
     } catch (err) {
       if (String(err.message).includes('UNIQUE constraint failed')) {
         return await renderBackend(req, res, {
-          settingsError: 'Den e-postadressen används redan.'
+          settingsError: 'Användarnamnet används redan.'
+        });
+      }
+      throw err;
+    }
+  } catch (err) {
+    return next(err);
+  }
+});
+
+
+router.post('/settings/email', async (req, res, next) => {
+  try {
+    const nextUsername = (req.body.username || req.body.email || '').trim().toLowerCase();
+    const currentPassword = req.body.currentPassword || '';
+
+    if (!nextUsername || !currentPassword) {
+      return await renderBackend(req, res, {
+        settingsError: 'Användarnamn och nuvarande lösenord måste fyllas i.'
+      });
+    }
+
+    const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
+    if (!ok) {
+      return await renderBackend(req, res, {
+        settingsError: 'Nuvarande lösenord är felaktigt.'
+      });
+    }
+
+    try {
+      await updateUsername(req.currentUser.id, nextUsername);
+      return await renderBackend(req, res, {
+        settingsMessage: 'Användarnamnet har uppdaterats.'
+      });
+    } catch (err) {
+      if (String(err.message).includes('UNIQUE constraint failed')) {
+        return await renderBackend(req, res, {
+          settingsError: 'Användarnamnet används redan.'
         });
       }
       throw err;

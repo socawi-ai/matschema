@@ -4,15 +4,24 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Matschema Admin</title>
+    <script>
+      (function () {
+        const saved = localStorage.getItem('matschema-theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <main class="page">
-      <header class="page-header">
-        <h1>Admin</h1>
+  <body class="admin-body">
+    <main class="page admin-page">
+      <header class="frontend-hero admin-hero">
+        <h1>Admin <span class="app-version">v3</span></h1>
         <div class="actions">
           <a class="button" href="/frontend">Frontend</a>
           <a class="button secondary" href="/">Start</a>
+          <button type="button" id="themeToggle" class="button secondary frontend-theme-toggle" aria-label="Byt färgtema">🌙 Mörkt läge</button>
           <button type="button" class="button secondary" onclick="document.getElementById('user-settings-dialog').showModal()">
             Användarinställningar
           </button>
@@ -21,7 +30,7 @@
           </form>
         </div>
       </header>
-      <p>Inloggad som <strong><%= currentUser ? currentUser.email : "okänd" %></strong></p>
+      <p class="admin-userline">Inloggad som <strong><%= currentUser ? (currentUser.username || currentUser.email) : "okänd" %></strong></p>
 
       <% if (error) { %>
         <p class="message error"><%= error %></p>
@@ -40,15 +49,15 @@
           <p class="message error"><%= settingsError %></p>
         <% } %>
 
-        <h3>Uppdatera e-post</h3>
-        <form method="post" action="/backend/settings/email" class="settings-form">
-          <label for="email">Ny e-post</label>
-          <input id="email" name="email" type="email" value="<%= currentUser ? currentUser.email : '' %>" required />
+        <h3>Uppdatera användarnamn</h3>
+        <form method="post" action="/backend/settings/username" class="settings-form">
+          <label for="username">Nytt användarnamn</label>
+          <input id="username" name="username" type="text" value="<%= currentUser ? (currentUser.username || currentUser.email) : '' %>" required />
 
           <label for="emailCurrentPassword">Nuvarande lösenord</label>
           <input id="emailCurrentPassword" name="currentPassword" type="password" required />
 
-          <button type="submit" class="button">Uppdatera e-post</button>
+          <button type="submit" class="button">Uppdatera användarnamn</button>
         </form>
 
         <h3>Byt lösenord</h3>
@@ -374,6 +383,37 @@
     </main>
     <script>
       (function () {
+        const themeToggle = document.getElementById('themeToggle');
+
+        function getTheme() {
+          return document.documentElement.getAttribute('data-theme') || 'light';
+        }
+
+        function applyTheme(theme) {
+          document.documentElement.setAttribute('data-theme', theme);
+          const isDark = theme === 'dark';
+          if (themeToggle) {
+            themeToggle.textContent = isDark ? '☀️ Ljust läge' : '🌙 Mörkt läge';
+          }
+        }
+
+        applyTheme(getTheme());
+
+        if (themeToggle) {
+          themeToggle.addEventListener('click', () => {
+            const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
+            localStorage.setItem('matschema-theme', nextTheme);
+            applyTheme(nextTheme);
+          });
+        }
+
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        mediaQuery.addEventListener('change', (event) => {
+          if (localStorage.getItem('matschema-theme')) {
+            return;
+          }
+          applyTheme(event.matches ? 'dark' : 'light');
+        });
         const STORAGE_KEY = 'backend_anchor_restore';
         const FALLBACK_KEY = 'backend_anchor_restore_fallback';
         const MAIN = document.querySelector('main.page');

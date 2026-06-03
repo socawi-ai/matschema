@@ -1,0 +1,25 @@
+services:
+  matschema:
+    image: ghcr.io/socawi-ai/matschema:latest
+    container_name: matschema
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env or shell}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-}
+      AUTO_BOOTSTRAP_ADMIN: ${AUTO_BOOTSTRAP_ADMIN:-false}
+      DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-}
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

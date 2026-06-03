@@ -4,21 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Matschema Inloggning</title>
+    <script>
+      (function () {
+        const saved = localStorage.getItem('matschema-theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
-  <body>
-    <main class="page">
-      <section class="card login-card">
-        <h1>Inloggning för admin</h1>
-        <p>Logga in för att hantera måltider och scheman.</p>
+  <body class="admin-body">
+    <main class="page admin-page">
+      <header class="frontend-hero admin-hero">
+        <div>
+          <p class="frontend-eyebrow">Admin</p>
+          <h1>Inloggning</h1>
+          <p class="frontend-lead">Logga in för att hantera måltider och scheman.</p>
+        </div>
+        <div class="actions">
+          <button type="button" id="themeToggle" class="button secondary frontend-theme-toggle" aria-label="Byt färgtema">🌙 Mörkt läge</button>
+          <a class="button frontend-admin-button" href="/frontend">Frontend</a>
+        </div>
+      </header>
+      <section class="card login-card admin-card">
+        <h2>Inloggning för admin</h2>
 
         <% if (error) { %>
           <p class="message error"><%= error %></p>
         <% } %>
 
         <form method="post" action="/auth/login" class="login-form">
-          <label for="email">Email</label>
-          <input id="email" name="email" type="email" required />
+          <label for="username">Användarnamn</label>
+          <input id="username" name="username" type="text" autocomplete="username" required />
 
           <label for="password">Lösenord</label>
           <input id="password" name="password" type="password" required />
@@ -29,5 +47,35 @@
         <p><a href="/frontend">Tillbaka till frontend</a></p>
       </section>
     </main>
+
+    <script>
+      const toggle = document.getElementById('themeToggle');
+
+      function getTheme() {
+        return document.documentElement.getAttribute('data-theme') || 'light';
+      }
+
+      function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        const isDark = theme === 'dark';
+        toggle.textContent = isDark ? '☀️ Ljust läge' : '🌙 Mörkt läge';
+      }
+
+      applyTheme(getTheme());
+
+      toggle.addEventListener('click', () => {
+        const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('matschema-theme', nextTheme);
+        applyTheme(nextTheme);
+      });
+
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      mediaQuery.addEventListener('change', (event) => {
+        if (localStorage.getItem('matschema-theme')) {
+          return;
+        }
+        applyTheme(event.matches ? 'dark' : 'light');
+      });
+    </script>
   </body>
 </html>

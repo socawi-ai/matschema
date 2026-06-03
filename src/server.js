@@ -1,3 +1,7 @@
+const { loadEnvFile } = require('./load-env');
+
+loadEnvFile();
+
 const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
@@ -31,18 +35,18 @@ async function bootstrapDefaultAdminIfNeeded() {
     return;
   }
 
-  const email = (process.env.DEFAULT_ADMIN_EMAIL || 'admin@matschema.local').trim().toLowerCase();
+  const username = (process.env.DEFAULT_ADMIN_USERNAME || process.env.DEFAULT_ADMIN_EMAIL || 'admin').trim().toLowerCase();
   const configuredPassword = process.env.DEFAULT_ADMIN_PASSWORD || '';
   const password = configuredPassword || generateBootstrapPassword();
 
   const passwordHash = await bcrypt.hash(password, 12);
-  await createUser({ email, passwordHash, role: 'admin' });
+  await createUser({ username, passwordHash, role: 'admin' });
 
   const shouldPrintPassword = !isProduction;
 
   console.log('');
   console.log('=== Matschema: första admin skapad automatiskt ===');
-  console.log(`E-post: ${email}`);
+  console.log(`Användarnamn: ${username}`);
   if (shouldPrintPassword) {
     console.log(`Lösenord: ${password}`);
   } else {
