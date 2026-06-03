@@ -1,7 +1,7 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 
-const { findUserByEmail } = require('../db');
+const { findUserByUsername } = require('../db');
 
 const router = express.Router();
 
@@ -15,14 +15,14 @@ router.get('/login', (req, res) => {
 
 router.post('/login', async (req, res, next) => {
   try {
-    const email = (req.body.email || '').trim().toLowerCase();
+    const username = (req.body.username || req.body.email || '').trim().toLowerCase();
     const password = req.body.password || '';
 
-    if (!email || !password) {
-      return res.status(400).render('login', { error: 'E-post och lösenord måste fyllas i.' });
+    if (!username || !password) {
+      return res.status(400).render('login', { error: 'Användarnamn och lösenord måste fyllas i.' });
     }
 
-    const user = await findUserByEmail(email);
+    const user = await findUserByUsername(username);
     if (!user) {
       return res.status(401).render('login', { error: 'Ogiltiga inloggningsuppgifter.' });
     }

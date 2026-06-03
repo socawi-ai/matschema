@@ -5,13 +5,13 @@ const { buildThreeWeekView } = require('../utils/scheduler');
 
 const router = express.Router();
 
-router.get('/', (req, res) => {
+function getWeeksWithIngredients() {
   const schedules = getSchedules();
   const weeks = buildThreeWeekView(schedules, new Date());
   const meals = getMeals();
   const mealsById = new Map(meals.map((meal) => [meal.id, meal]));
 
-  const weeksWithIngredients = weeks.map((week) => ({
+  return weeks.map((week) => ({
     ...week,
     entries: week.entries.map((entry) => {
       const meal = entry.mealId ? mealsById.get(entry.mealId) : null;
@@ -21,9 +21,17 @@ router.get('/', (req, res) => {
       };
     })
   }));
+}
 
+router.get('/', (req, res) => {
   res.render('frontend', {
-    weeks: weeksWithIngredients
+    weeks: getWeeksWithIngredients()
+  });
+});
+
+router.get('/ha', (req, res) => {
+  res.render('frontend-ha', {
+    weeks: getWeeksWithIngredients()
   });
 });
 

@@ -1,79 +1,114 @@
 # Matschema
 
-Matschema är en webbapp för att planera veckans måltider.
+Matschema is a meal planning web app packaged as a Docker image.
 
-## Vad appen gör
+Image:
 
-- Visar 3 veckor i frontend (nuvarande vecka + 2 kommande)
-- Visar ingredienser i popup när man klickar på en måltid
-- Har en admin/backend bakom inloggning för att:
-  - hantera måltidsdatabas
-  - generera och redigera veckoscheman
-  - hantera användarinställningar
+- `ghcr.io/socawi-ai/matschema:latest`
 
-## Teknik
+Default port:
 
-- Node.js
-- Express
-- EJS
-- SQLite (användare)
-- JSON-filer (måltider och scheman)
+- `3000`
 
-## Snabb setup
+## Quick Start
 
-1. Klona repot
-```bash
-git clone https://github.com/socawi-ai/matschema.git
-cd matschema
+Create a `.env` file next to `docker-compose.yml`:
+
+```env
+SESSION_SECRET=replace-with-a-long-random-secret
+COOKIE_SECURE=false
+FORCE_HTTPS=false
+AUTO_BOOTSTRAP_ADMIN=true
+DEFAULT_ADMIN_USERNAME=admin
+DEFAULT_ADMIN_PASSWORD=change-this-password
 ```
 
-2. Installera beroenden
+Start the app:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+Open:
+
+- `http://localhost:3000`
+- `http://localhost:3000/auth/login`
+- `http://localhost:3000/backend`
+
+## Update
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+## Logs
+
+```bash
+docker compose logs -f
+```
+
+## Data
+
+Runtime data is stored in `./data` on the host and mounted into the container at `/app/data`.
+
+This includes:
+
+- SQLite user database
+- meal data
+- schedule data
+
+Back up `./data` before replacing servers or moving the app.
+
+## Reverse Proxy / HTTPS
+
+If the app runs behind HTTPS through a reverse proxy, set:
+
+```env
+COOKIE_SECURE=true
+FORCE_HTTPS=true
+```
+
+If you run it directly over plain HTTP, keep:
+
+```env
+COOKIE_SECURE=false
+FORCE_HTTPS=false
+```
+
+## Docker Run
+
+Compose is recommended because it keeps the volume and environment configuration explicit. A direct `docker run` example:
+
+```bash
+docker run -d \
+  --name matschema \
+  --restart unless-stopped \
+  -p 3000:3000 \
+  -e NODE_ENV=production \
+  -e PORT=3000 \
+  -e SESSION_SECRET="replace-with-a-long-random-secret" \
+  -e COOKIE_SECURE=false \
+  -e FORCE_HTTPS=false \
+  -v "$PWD/data:/app/data" \
+  ghcr.io/socawi-ai/matschema:latest
+```
+
+## Local Development
+
 ```bash
 npm install
-```
-
-3. Skapa miljöfil
-```bash
 cp .env.example .env
-```
-
-4. Starta appen
-```bash
 npm start
 ```
 
-5. Öppna i webbläsaren
-- Frontend: `http://localhost:3000/`
-- Login: `http://localhost:3000/auth/login`
-- Backend: `http://localhost:3000/backend`
+## Container Publishing
 
-## Skapa första admin
+GitHub Actions builds and publishes the image to GitHub Container Registry on pushes to `main` and tags matching `v*`.
 
-```bash
-ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=your-password npm run seed:admin
-```
+Published tags include:
 
-## Första start (automatisk admin)
-
-Vid första uppstarten (om inga användare finns) skapas en admin automatiskt.
-Inloggningsuppgifter skrivs ut i server-loggen.
-
-Valfria variabler i `.env`:
-
-```env
-DEFAULT_ADMIN_EMAIL=admin@matschema.local
-DEFAULT_ADMIN_PASSWORD=valfritt-losenord
-```
-
-Om `DEFAULT_ADMIN_PASSWORD` saknas genererar appen ett slumpat lösenord och visar det i loggen.
-
-## Miljövariabler
-
-I `.env`:
-
-```env
-NODE_ENV=development
-PORT=3000
-SESSION_SECRET=replace-with-a-long-random-secret
-COOKIE_SECURE=false
-```
+- `latest`
+- `sha-*`
+- version tags such as `v1.0.0`

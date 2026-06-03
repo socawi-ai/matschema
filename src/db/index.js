@@ -8,6 +8,18 @@ const dbPath = path.join(dataDir, 'matschema.sqlite');
 
 let dbPromise;
 
+async function ensureUsersUsernameColumn(db) {
+  const columns = await db.all('PRAGMA table_info(users)');
+  const hasUsername = columns.some((column) => column.name === 'username');
+
+  if (!hasUsername) {
+    await db.exec('ALTER TABLE users ADD COLUMN username TEXT');
+    await db.exec("UPDATE users SET username = LOWER(email) WHERE username IS NULL OR TRIM(username) = ''");
+  }
+
+  await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username)');
+}
+
 async function getDb() {
   if (dbPromise) {
     return dbPromise;
@@ -27,11 +39,14 @@ async function getDb() {
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       email TEXT NOT NULL UNIQUE,
+      username TEXT UNIQUE,
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'admin',
       created_at TEXT NOT NULL
     )
   `);
+  await ensureUsersUsernameColumn(db);
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_rules (
       user_id INTEGER PRIMARY KEY,
@@ -46,7 +61,12 @@ async function getDb() {
 
 async function findUserByEmail(email) {
   const db = await getDb();
-  return db.get('SELECT * FROM users WHERE email = ?', email);
+  return db.get('SELECT * FROM users WHERE email = ?', String(email || '').trim().toLowerCase());
+}
+
+async function findUserByUsername(username) {
+  const db = await getDb();
+  return db.get('SELECT * FROM users WHERE username = ?', String(username || '').trim().toLowerCase());
 }
 
 async function findUserById(id) {
@@ -60,12 +80,16 @@ async function countUsers() {
   return row ? Number(row.count || 0) : 0;
 }
 
-async function createUser({ email, passwordHash, role = 'admin' }) {
+async function createUser({ username, email, passwordHash, role = 'admin' }) {
   const db = await getDb();
   const createdAt = new Date().toISOString();
+  const normalizedUsername = String(username || email || '').trim().toLowerCase();
+  const normalizedEmail = String(email || normalizedUsername || '').trim().toLowerCase();
+
   const result = await db.run(
-    'INSERT INTO users (email, password_hash, role, created_at) VALUES (?, ?, ?, ?)',
-    email,
+    'INSERT INTO users (email, username, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)',
+    normalizedEmail,
+    normalizedUsername,
     passwordHash,
     role,
     createdAt
@@ -75,7 +99,15 @@ async function createUser({ email, passwordHash, role = 'admin' }) {
 
 async function updateUserEmail(id, email) {
   const db = await getDb();
-  await db.run('UPDATE users SET email = ? WHERE id = ?', email, id);
+  const normalized = String(email || '').trim().toLowerCase();
+  await db.run('UPDATE users SET email = ?, username = ? WHERE id = ?', normalized, normalized, id);
+  return findUserById(id);
+}
+
+async function updateUsername(id, username) {
+  const db = await getDb();
+  const normalized = String(username || '').trim().toLowerCase();
+  await db.run('UPDATE users SET username = ?, email = ? WHERE id = ?', normalized, normalized, id);
   return findUserById(id);
 }
 
@@ -118,10 +150,12 @@ module.exports = {
   countUsers,
   createUser,
   findUserByEmail,
+  findUserByUsername,
   findUserById,
   getRulesByUserId,
   getDb,
   upsertRulesByUserId,
   updateUserEmail,
+  updateUsername,
   updateUserPasswordHash
 };

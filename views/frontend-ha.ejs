@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matschema HA</title>
+    <script>
+      (function () {
+        const saved = localStorage.getItem('matschema-theme');
+        const theme = saved || 'dark';
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="frontend-body ha-body">
+    <main class="ha-page">
+      <section class="ha-week-list">
+        <% weeks.forEach(function(week, weekIndex) { %>
+          <article class="ha-week-row <%= weekIndex === 0 ? 'ha-week-current' : '' %>">
+            <div class="ha-week-label">v<%= week.weekNumber %></div>
+            <div class="ha-days-grid">
+              <% week.entries.forEach(function(entry) { %>
+                <div class="ha-day-cell">
+                  <div class="ha-day-name"><%= entry.day.slice(0, 3) %></div>
+                  <% if (entry.ingredients && entry.ingredients.length) { %>
+                    <button
+                      type="button"
+                      class="ha-meal-button"
+                      data-meal-name="<%= entry.mealName %>"
+                      data-ingredients="<%= entry.ingredients.join('||') %>"
+                    >
+                      <%= entry.mealName %>
+                    </button>
+                  <% } else { %>
+                    <span class="ha-meal-text"><%= entry.mealName %></span>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+          </article>
+        <% }) %>
+      </section>
+    </main>
+
+    <dialog id="ingredientsDialog" class="ingredients-dialog frontend-ingredients-dialog">
+      <h3 id="ingredientsTitle"></h3>
+      <ul id="ingredientsList"></ul>
+      <form method="dialog">
+        <button class="button secondary">Stäng</button>
+      </form>
+    </dialog>
+
+    <script>
+      const dialog = document.getElementById('ingredientsDialog');
+      const title = document.getElementById('ingredientsTitle');
+      const list = document.getElementById('ingredientsList');
+
+      dialog.addEventListener('click', (event) => {
+        const rect = dialog.getBoundingClientRect();
+        const clickedInDialog =
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom;
+
+        if (!clickedInDialog) {
+          dialog.close();
+        }
+      });
+
+      document.querySelectorAll('.ha-meal-button').forEach((button) => {
+        button.addEventListener('click', () => {
+          const mealName = button.dataset.mealName || 'Måltid';
+          const ingredientsRaw = button.dataset.ingredients || '';
+          const ingredients = ingredientsRaw.split('||').filter(Boolean);
+
+          title.textContent = `Ingredienser: ${mealName}`;
+          list.innerHTML = ingredients.map((item) => `<li>${item}</li>`).join('');
+          dialog.showModal();
+        });
+      });
+    </script>
+  </body>
+</html>
