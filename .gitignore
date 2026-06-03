@@ -7,7 +7,7 @@ node_modules/
 .env.*.local
 
 # Runtime data (contains user accounts, schedules, meals)
-data/
+/data/
 *.sqlite
 *.sqlite3
 *.db
