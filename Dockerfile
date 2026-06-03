@@ -1,6 +1,5 @@
-FROM node:20-bookworm-slim
+FROM node:20-bookworm-slim AS deps
 
-ENV NODE_ENV=production
 WORKDIR /app
 
 RUN apt-get update \
@@ -10,7 +9,21 @@ RUN apt-get update \
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-COPY . .
+FROM node:20-bookworm-slim AS runtime
+
+ENV NODE_ENV=production
+WORKDIR /app
+
+RUN apt-get update \
+  && apt-get upgrade -y \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY package.json ./
+COPY public ./public
+COPY src ./src
+COPY views ./views
+
 RUN mkdir -p /app/data && chown -R node:node /app
 
 USER node
