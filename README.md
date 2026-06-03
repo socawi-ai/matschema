@@ -27,7 +27,6 @@ Start the app:
 
 ```bash
 mkdir -p data
-sudo chown -R 1000:1000 data
 docker compose pull
 docker compose up -d
 ```
@@ -54,12 +53,10 @@ docker compose logs -f
 ## Data
 
 Runtime data is stored in `./data` on the host and mounted into the container at `/app/data`.
-The container runs as the non-root `node` user, which uses UID/GID `1000`.
-The host data directory must be writable by that user:
+The container runs as root so it can write to bind-mounted host data directories without extra ownership setup.
 
 ```bash
 mkdir -p data
-sudo chown -R 1000:1000 data
 ```
 
 This includes:
