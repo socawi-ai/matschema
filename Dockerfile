@@ -4,10 +4,11 @@ WORKDIR /app
 
 RUN apt-get update \
   && apt-get upgrade -y \
+  && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm_config_build_from_source=true npm ci --omit=dev
 
 FROM node:20-bookworm-slim AS runtime
 
