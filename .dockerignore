@@ -5,7 +5,7 @@ npm-debug.log
 .env
 .env.*
 !.env.example
-data
+/data
 logs
 *.log
 .DS_Store
