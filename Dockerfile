@@ -4,6 +4,7 @@ WORKDIR /app
 
 RUN apt-get update \
   && apt-get upgrade -y \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json ./
