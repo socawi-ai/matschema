@@ -44,31 +44,99 @@ function startOfISOWeek(year, weekNumber) {
   );
 }
 
-function shuffle(items) {
-  const arr = [...items];
-  for (let i = arr.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
+function takeRandom(pool) {
+  if (!pool.length) {
+    return undefined;
   }
-  return arr;
+  const index = Math.floor(Math.random() * pool.length);
+  return pool.splice(index, 1)[0];
 }
 
-function generateRandomWeekSchedule(meals, weekStartDate) {
+function generateWeekSchedule(meals, weekStartDate, rules) {
   if (!meals.length) {
     return null;
   }
 
   const weekStart = startOfWeek(weekStartDate);
-  const shuffled = shuffle(meals);
-  const entries = DAYS.map((day, index) => {
-    const meal = shuffled[index % shuffled.length];
-    return {
-      day,
-      date: toISODate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
-      mealId: meal.id,
-      mealName: meal.name
-    };
-  });
+  const entries = DAYS.map((day, index) => ({
+    day,
+    date: toISODate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
+    mealId: null,
+    mealName: 'Rester'
+  }));
+  const entriesByDay = new Map(entries.map((entry) => [entry.day, entry]));
+
+  const used = new Set();
+  function assign(day, meal) {
+    const entry = entriesByDay.get(day);
+    if (!entry) return;
+    if (meal) {
+      entry.mealId = meal.id;
+      entry.mealName = meal.name;
+      used.add(meal.id);
+    }
+  }
+  function pickUnique(pool) {
+    const candidates = pool.filter((meal) => !used.has(meal.id));
+    return candidates.length ? candidates[Math.floor(Math.random() * candidates.length)] : undefined;
+  }
+
+  const fishMeals = meals.filter((meal) => (meal.tags || []).includes('fish'));
+  const vegetarianMeals = meals.filter((meal) => (meal.tags || []).includes('vegetarian'));
+  const specialMeals = meals.filter((meal) => (meal.tags || []).includes('special'));
+  const plainMeals = meals.filter(
+    (meal) => (meal.tags || []).includes('regular') && !(meal.tags || []).includes('special')
+  );
+
+  // Special days (e.g. Friday/Saturday) intentionally share the same dish —
+  // that's the one allowed repeat.
+  if (rules.specialDays.length) {
+    const specialMeal = pickUnique(specialMeals);
+    rules.specialDays.forEach((day) => assign(day, specialMeal));
+  }
+
+  const nonSpecialDays = DAYS.filter((day) => !rules.specialDays.includes(day));
+
+  // First fish day prefers Monday-Thursday; extra fish days can land on any
+  // remaining non-special day. Each fish day gets a distinct dish.
+  const fishDayPool = [...nonSpecialDays];
+  const preferredFishDayPool = fishDayPool.filter((day) =>
+    ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag'].includes(day)
+  );
+  const fishDaysAssigned = [];
+  for (let i = 0; i < rules.fishMealsPerWeek; i += 1) {
+    const day = i === 0 && preferredFishDayPool.length ? takeRandom(preferredFishDayPool) : takeRandom(fishDayPool);
+    if (!day) break;
+    const otherIdx = fishDayPool.indexOf(day);
+    if (otherIdx >= 0) fishDayPool.splice(otherIdx, 1);
+    const preferredIdx = preferredFishDayPool.indexOf(day);
+    if (preferredIdx >= 0) preferredFishDayPool.splice(preferredIdx, 1);
+    assign(day, pickUnique(fishMeals));
+    fishDaysAssigned.push(day);
+  }
+
+  // Vegetarian days come from the allowed-days list, minus days already used for fish.
+  const vegAllowedDays = rules.vegetarianAllowedDays.length
+    ? rules.vegetarianAllowedDays
+    : ['Måndag', 'Onsdag', 'Torsdag', 'Söndag'];
+  const vegDayPool = nonSpecialDays.filter(
+    (day) => vegAllowedDays.includes(day) && !fishDaysAssigned.includes(day)
+  );
+  const vegDaysAssigned = [];
+  for (let i = 0; i < rules.vegetarianMealsPerWeek; i += 1) {
+    const day = takeRandom(vegDayPool);
+    if (!day) break;
+    assign(day, pickUnique(vegetarianMeals));
+    vegDaysAssigned.push(day);
+  }
+
+  // Every remaining day gets a distinct plain dish. If there aren't enough
+  // unique dishes left to fill every day, the leftover days stay "Rester"
+  // instead of repeating something already used this week.
+  const remainingDays = nonSpecialDays.filter(
+    (day) => !fishDaysAssigned.includes(day) && !vegDaysAssigned.includes(day)
+  );
+  remainingDays.forEach((day) => assign(day, pickUnique(plainMeals)));
 
   return {
     id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
@@ -104,7 +172,7 @@ function buildThreeWeekView(schedules, baseDate = new Date()) {
 module.exports = {
   buildThreeWeekView,
   DAYS,
-  generateRandomWeekSchedule,
+  generateWeekSchedule,
   getISOWeekNumber,
   getISOWeekYear,
   startOfISOWeek,

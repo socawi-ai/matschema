@@ -14,7 +14,7 @@ const {
   upsertScheduleByWeekStart
 } = require('../data/store');
 const {
-  generateRandomWeekSchedule,
+  generateWeekSchedule,
   DAYS,
   getISOWeekNumber,
   startOfWeek
@@ -27,10 +27,6 @@ const {
 } = require('../db');
 
 const router = express.Router();
-
-function randomItem(items) {
-  return items[Math.floor(Math.random() * items.length)];
-}
 
 const DEFAULT_RULES = {
   planningHorizonWeeks: 3,
@@ -238,94 +234,10 @@ router.post('/schedule/generate', async (req, res) => {
       firstWeekStart.getMonth(),
       firstWeekStart.getDate() + i * 7
     );
-    const schedule = generateRandomWeekSchedule(meals, weekStart);
-    if (schedule && Array.isArray(schedule.entries)) {
-      const entriesByDay = new Map(schedule.entries.map((entry) => [entry.day, entry]));
-
-      const fishMeal = randomItem(fishMeals);
-      const specialMeal = randomItem(specialMeals);
-      let vegCandidates = vegetarianMeals.filter(
-        (meal) => meal.id !== fishMeal.id && meal.id !== specialMeal.id
-      );
-      if (!vegCandidates.length) {
-        vegCandidates = vegetarianMeals;
-      }
-      const vegetarianMeal = randomItem(vegCandidates);
-
-      // Fixed constraints:
-      // - One fish day is randomly picked Monday-Thursday.
-      // - Friday and Saturday must be the same special meal.
-      const preferredFishDays = ['Måndag', 'Tisdag', 'Onsdag', 'Torsdag'];
-      const fishDayCandidates = preferredFishDays.filter((day) => !rules.specialDays.includes(day));
-      const selectedFishDay = randomItem(fishDayCandidates.length ? fishDayCandidates : preferredFishDays);
-      const fishDayEntry = entriesByDay.get(selectedFishDay);
-      if (fishDayEntry) {
-        fishDayEntry.mealId = fishMeal.id;
-        fishDayEntry.mealName = fishMeal.name;
-      }
-
-      // Additional fish placements if requested.
-      const extraFishDays = DAYS.filter(
-        (day) =>
-          day !== selectedFishDay &&
-          !rules.specialDays.includes(day)
-      );
-      let fishPlaced = fishDayEntry ? 1 : 0;
-      while (fishPlaced < rules.fishMealsPerWeek && extraFishDays.length) {
-        const day = randomItem(extraFishDays);
-        const idx = extraFishDays.indexOf(day);
-        if (idx >= 0) extraFishDays.splice(idx, 1);
-        const entry = entriesByDay.get(day);
-        if (!entry) continue;
-        const chosen = randomItem(fishMeals);
-        entry.mealId = chosen.id;
-        entry.mealName = chosen.name;
-        fishPlaced += 1;
-      }
-
-      rules.specialDays.forEach((day) => {
-        const specialEntry = entriesByDay.get(day);
-        if (!specialEntry) return;
-        specialEntry.mealId = specialMeal.id;
-        specialEntry.mealName = specialMeal.name;
-      });
-
-      // Never allow special meals outside selected special days.
-      const nonSpecialDays = DAYS.filter((day) => !rules.specialDays.includes(day));
-      nonSpecialDays.forEach((day) => {
-        const entry = entriesByDay.get(day);
-        if (!entry) return;
-        const currentMeal = meals.find((meal) => meal.id === entry.mealId);
-        if (currentMeal && (currentMeal.tags || []).includes('special')) {
-          const fallbackCandidates = nonSpecialMeals.filter(
-            (meal) => meal.id !== specialMeal.id
-          );
-          const fallback = randomItem(fallbackCandidates.length ? fallbackCandidates : nonSpecialMeals);
-          entry.mealId = fallback.id;
-          entry.mealName = fallback.name;
-        }
-      });
-
-      // Place configured number of vegetarian meals on allowed days.
-      const vegDays = (rules.vegetarianAllowedDays.length
-        ? rules.vegetarianAllowedDays
-        : ['Måndag', 'Onsdag', 'Torsdag', 'Söndag']
-      ).filter((day) => !rules.specialDays.includes(day));
-      const vegPool = [...vegDays];
-      let vegPlaced = 0;
-      while (vegPlaced < rules.vegetarianMealsPerWeek && vegPool.length) {
-        const day = randomItem(vegPool);
-        const idx = vegPool.indexOf(day);
-        if (idx >= 0) vegPool.splice(idx, 1);
-        const vegEntry = entriesByDay.get(day);
-        if (!vegEntry) continue;
-        const chosenVeg = vegPlaced === 0 ? vegetarianMeal : randomItem(vegetarianMeals);
-        vegEntry.mealId = chosenVeg.id;
-        vegEntry.mealName = chosenVeg.name;
-        vegPlaced += 1;
-      }
+    const schedule = generateWeekSchedule(meals, weekStart, rules);
+    if (schedule) {
+      upsertScheduleByWeekStart(schedule);
     }
-    upsertScheduleByWeekStart(schedule);
   }
 
   return res.redirect('/backend');

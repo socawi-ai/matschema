@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="admin-body">
+    <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <main class="page admin-page">
       <header class="frontend-hero admin-hero">
         <h1>Admin <span class="app-version">v3</span></h1>
@@ -78,7 +79,7 @@
       <div class="top-tools-grid">
         <section class="card compact-card" id="card-add-meal" data-preserve-anchor>
           <h2>Lägg till måltid</h2>
-          <form method="post" action="/backend/meals" class="settings-form" data-async data-refresh-target="#card-meal-database">
+          <form id="add-meal-form" method="post" action="/backend/meals" class="settings-form" data-async data-refresh-target="#card-meal-database">
             <label for="mealName">Måltidsnamn</label>
             <input id="mealName" type="text" name="name" placeholder="t.ex. Kycklinggryta" />
             <div class="inline-check-group">
@@ -414,6 +415,20 @@
           }
           applyTheme(event.matches ? 'dark' : 'light');
         });
+        const toastContainer = document.getElementById('toast-container');
+        function showToast(message, isError) {
+          if (!toastContainer) return;
+          const toast = document.createElement('div');
+          toast.className = 'toast' + (isError ? ' error' : '');
+          toast.textContent = message;
+          toastContainer.appendChild(toast);
+          requestAnimationFrame(() => toast.classList.add('show'));
+          setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => toast.remove(), 250);
+          }, 2200);
+        }
+
         const STORAGE_KEY = 'backend_anchor_restore';
         const FALLBACK_KEY = 'backend_anchor_restore_fallback';
         const MAIN = document.querySelector('main.page');
@@ -617,6 +632,18 @@
           const other = form.querySelector(`input[name="${otherName}"]`);
           if (other) other.checked = false;
         });
+
+        const addMealForm = document.getElementById('add-meal-form');
+        if (addMealForm) {
+          addMealForm.addEventListener('async:done', (event) => {
+            if (event.detail && event.detail.ok) {
+              addMealForm.reset();
+              showToast('Måltid tillagd.');
+            } else {
+              showToast('Kunde inte lägga till måltiden. Kontrollera fälten.', true);
+            }
+          });
+        }
 
         const rulesForm = document.getElementById('planning-rules-form');
         const rulesStatus = document.getElementById('rules-autosave-status');
