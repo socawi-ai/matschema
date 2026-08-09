@@ -21,7 +21,7 @@
             <div class="ha-week-label">v<%= week.weekNumber %></div>
             <div class="ha-days-grid">
               <% week.entries.forEach(function(entry) { %>
-                <div class="ha-day-cell">
+                <div class="ha-day-cell <%= entry.date === today ? 'ha-day-today' : '' %>">
                   <div class="ha-day-name"><%= entry.day.slice(0, 3) %></div>
                   <% if (entry.ingredients && entry.ingredients.length) { %>
                     <button

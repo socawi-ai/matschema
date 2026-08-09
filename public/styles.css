@@ -755,6 +755,11 @@ a:focus-visible {
   min-width: 0;
 }
 
+.ha-day-today {
+  border-color: #2563eb;
+  background: rgba(37, 99, 235, 0.12);
+}
+
 .ha-day-name {
   font-size: 0.64rem;
   text-transform: uppercase;

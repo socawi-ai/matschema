@@ -176,5 +176,6 @@ module.exports = {
   getISOWeekNumber,
   getISOWeekYear,
   startOfISOWeek,
-  startOfWeek
+  startOfWeek,
+  toISODate
 };

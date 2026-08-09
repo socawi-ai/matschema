@@ -1,7 +1,7 @@
 const express = require('express');
 
 const { getMeals, getSchedules } = require('../data/store');
-const { buildThreeWeekView } = require('../utils/scheduler');
+const { buildThreeWeekView, toISODate } = require('../utils/scheduler');
 
 const router = express.Router();
 
@@ -31,7 +31,8 @@ router.get('/', (req, res) => {
 
 router.get('/ha', (req, res) => {
   res.render('frontend-ha', {
-    weeks: getWeeksWithIngredients()
+    weeks: getWeeksWithIngredients(),
+    today: toISODate(new Date())
   });
 });
 
