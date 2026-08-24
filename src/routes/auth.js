@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 
 const { findUserByUsername } = require('../db');
+const loginRateLimiter = require('../middleware/login-rate-limit');
 
 const router = express.Router();
 
@@ -13,7 +14,7 @@ router.get('/login', (req, res) => {
   return res.render('login', { error: null });
 });
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', loginRateLimiter, async (req, res, next) => {
   try {
     const username = (req.body.username || req.body.email || '').trim().toLowerCase();
     const password = req.body.password || '';
