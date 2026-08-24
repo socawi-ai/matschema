@@ -503,6 +503,12 @@ a:focus-visible {
   font-weight: 600;
 }
 
+.day-box-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .day-box select,
 .day-box input {
   width: 100%;

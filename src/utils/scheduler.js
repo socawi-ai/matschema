@@ -52,22 +52,35 @@ function takeRandom(pool) {
   return pool.splice(index, 1)[0];
 }
 
-function generateWeekSchedule(meals, weekStartDate, rules) {
+function isEntryFilled(entry) {
+  return Boolean(entry) && Boolean(entry.mealId || (entry.mealName && entry.mealName !== 'Rester'));
+}
+
+function generateWeekSchedule(meals, weekStartDate, rules, existingEntries = []) {
   if (!meals.length) {
     return null;
   }
 
   const weekStart = startOfWeek(weekStartDate);
-  const entries = DAYS.map((day, index) => ({
-    day,
-    date: toISODate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
-    mealId: null,
-    mealName: 'Rester'
-  }));
+  const existingByDay = new Map((existingEntries || []).map((entry) => [entry.day, entry]));
+  const entries = DAYS.map((day, index) => {
+    const existing = existingByDay.get(day);
+    if (isEntryFilled(existing)) {
+      return { ...existing };
+    }
+    return {
+      day,
+      date: toISODate(new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index)),
+      mealId: null,
+      mealName: 'Rester'
+    };
+  });
   const entriesByDay = new Map(entries.map((entry) => [entry.day, entry]));
+  const filledDays = new Set(entries.filter(isEntryFilled).map((entry) => entry.day));
 
-  const used = new Set();
+  const used = new Set(entries.filter((entry) => entry.mealId).map((entry) => entry.mealId));
   function assign(day, meal) {
+    if (filledDays.has(day)) return;
     const entry = entriesByDay.get(day);
     if (!entry) return;
     if (meal) {
@@ -90,12 +103,13 @@ function generateWeekSchedule(meals, weekStartDate, rules) {
 
   // Special days (e.g. Friday/Saturday) intentionally share the same dish —
   // that's the one allowed repeat.
-  if (rules.specialDays.length) {
+  const emptySpecialDays = rules.specialDays.filter((day) => !filledDays.has(day));
+  if (emptySpecialDays.length) {
     const specialMeal = pickUnique(specialMeals);
-    rules.specialDays.forEach((day) => assign(day, specialMeal));
+    emptySpecialDays.forEach((day) => assign(day, specialMeal));
   }
 
-  const nonSpecialDays = DAYS.filter((day) => !rules.specialDays.includes(day));
+  const nonSpecialDays = DAYS.filter((day) => !rules.specialDays.includes(day) && !filledDays.has(day));
 
   // First fish day prefers Monday-Thursday; extra fish days can land on any
   // remaining non-special day. Each fish day gets a distinct dish.

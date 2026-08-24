@@ -93,6 +93,20 @@ function updateMealIngredients(mealId, ingredients = []) {
   writeJson(mealsPath, nextMeals);
 }
 
+function updateMealName(mealId, name) {
+  const meals = getMeals();
+  const nextMeals = meals.map((meal) => {
+    if (meal.id !== mealId) {
+      return meal;
+    }
+    return {
+      ...meal,
+      name
+    };
+  });
+  writeJson(mealsPath, nextMeals);
+}
+
 function updateMealMeta(mealId, { tags }) {
   const meals = getMeals();
   const nextMeals = meals.map((meal) => {
@@ -169,6 +183,7 @@ module.exports = {
   saveSchedule,
   updateScheduleEntriesById,
   updateMealMeta,
+  updateMealName,
   updateMealIngredients,
   upsertScheduleByWeekStart
 };

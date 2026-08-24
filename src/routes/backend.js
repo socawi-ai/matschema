@@ -10,6 +10,7 @@ const {
   removeSchedulesBeforeWeekStart,
   updateScheduleEntriesById,
   updateMealMeta,
+  updateMealName,
   updateMealIngredients,
   upsertScheduleByWeekStart
 } = require('../data/store');
@@ -149,6 +150,27 @@ router.post('/meals/:mealId/meta', async (req, res) => {
   return res.redirect('/backend');
 });
 
+router.post('/meals/:mealId/name', async (req, res) => {
+  const mealId = (req.params.mealId || '').trim();
+  if (!mealId) {
+    res.status(400);
+    return await renderBackend(req, res, {
+      error: 'Saknar måltids-id.'
+    });
+  }
+
+  const name = (req.body.name || '').trim();
+  if (!name) {
+    res.status(400);
+    return await renderBackend(req, res, {
+      error: 'Måltidsnamn måste fyllas i.'
+    });
+  }
+
+  updateMealName(mealId, name);
+  return res.redirect('/backend');
+});
+
 router.post('/meals/:mealId/ingredients', async (req, res) => {
   const mealId = (req.params.mealId || '').trim();
   if (!mealId) {
@@ -227,6 +249,7 @@ router.post('/schedule/generate', async (req, res) => {
   }
 
   const firstWeekStart = startOfWeek(new Date());
+  const existingSchedules = getSchedules();
 
   for (let i = 0; i < rules.planningHorizonWeeks; i += 1) {
     const weekStart = new Date(
@@ -234,8 +257,14 @@ router.post('/schedule/generate', async (req, res) => {
       firstWeekStart.getMonth(),
       firstWeekStart.getDate() + i * 7
     );
-    const schedule = generateWeekSchedule(meals, weekStart, rules);
+    const weekStartIso = startOfWeek(weekStart).toISOString().slice(0, 10);
+    const existingSchedule = existingSchedules.find((item) => item.weekStart === weekStartIso);
+    const schedule = generateWeekSchedule(meals, weekStart, rules, existingSchedule ? existingSchedule.entries : []);
     if (schedule) {
+      if (existingSchedule) {
+        schedule.id = existingSchedule.id;
+        schedule.createdAt = existingSchedule.createdAt;
+      }
       upsertScheduleByWeekStart(schedule);
     }
   }

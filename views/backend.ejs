@@ -177,6 +177,18 @@
                         <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
                       </div>
 
+                      <form method="post" action="/backend/meals/<%= meal.id %>/name" class="settings-form" data-async data-refresh-target="#card-meal-database">
+                        <label for="name-<%= meal.id %>">Namn</label>
+                        <input
+                          type="text"
+                          id="name-<%= meal.id %>"
+                          name="name"
+                          value="<%= meal.name %>"
+                          required
+                        />
+                        <button type="submit" class="button secondary">Spara namn</button>
+                      </form>
+
                       <% if (!meal.ingredients || !meal.ingredients.length) { %>
                         <p>Inga ingredienser angivna.</p>
                       <% } else { %>
@@ -236,6 +248,18 @@
                         <h3><%= meal.name %></h3>
                         <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
                       </div>
+
+                      <form method="post" action="/backend/meals/<%= meal.id %>/name" class="settings-form" data-async data-refresh-target="#card-meal-database">
+                        <label for="name-special-<%= meal.id %>">Namn</label>
+                        <input
+                          type="text"
+                          id="name-special-<%= meal.id %>"
+                          name="name"
+                          value="<%= meal.name %>"
+                          required
+                        />
+                        <button type="submit" class="button secondary">Spara namn</button>
+                      </form>
 
                       <% if (!meal.ingredients || !meal.ingredients.length) { %>
                         <p>Inga ingredienser angivna.</p>
@@ -314,7 +338,10 @@
                       <div class="day-box <%= idx < 4 ? 'row-top' : 'row-bottom' %>">
                         <div class="day-box-head">
                           <strong><%= entry.day %></strong>
-                          <button type="submit" class="button secondary icon-button" name="randomIndex" value="<%= idx %>" title="Slumpa ny måltid">🎲</button>
+                          <div class="day-box-actions">
+                            <button type="button" class="button secondary icon-button set-leftovers-btn" title="Sätt som Rester/Matlåda">🍱</button>
+                            <button type="submit" class="button secondary icon-button" name="randomIndex" value="<%= idx %>" title="Slumpa ny måltid">🎲</button>
+                          </div>
                         </div>
                         <input type="hidden" name="mealIds[]" value="<%= entry.mealId || '' %>" />
                         <input type="hidden" name="customMeals[]" value="<%= entry.mealId ? '' : (entry.mealName || '') %>" />
@@ -560,6 +587,23 @@
           if (closeBtn) {
             const dialog = closeBtn.closest('dialog');
             if (dialog) dialog.close();
+            return;
+          }
+
+          const leftoversBtn = event.target.closest('.set-leftovers-btn');
+          if (leftoversBtn) {
+            const dayBox = leftoversBtn.closest('.day-box');
+            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
+            if (!dayBox || !form) return;
+
+            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
+            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
+            const label = dayBox.querySelector('.selected-meal');
+            mealIdInput.value = '';
+            customInput.value = 'Rester/Matlåda';
+            if (label) label.textContent = 'Rester/Matlåda';
+            form.dataset.ignoreSubmitter = '1';
+            form.requestSubmit();
             return;
           }
 
