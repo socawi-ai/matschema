@@ -1,0 +1,413 @@
+[
+ {
+  "id": "1540-43144-1045317",
+  "weekNumber": 41,
+  "campaignStartDate": "2026-10-05T00:00:00",
+  "campaignEndDate": "2026-10-11T23:59:59",
+  "externalId": "2017302900004",
+  "storeLedgerAccountNumber": "231900",
+  "channelCodes": [
+   "DR",
+   "FS",
+   "TV"
+  ],
+  "roleDescriptions": [
+   "FS",
+   "MF"
+  ],
+  "categoryTeam": {
+   "name": "Frukt/Grönt/Blommor"
+  },
+  "categoryGroup": "Färsk",
+  "eagId": 43144,
+  "priceInformation": {
+   "discountValue": 20,
+   "isMemberPrice": true,
+   "isItemPriceDiscount": true,
+   "unit": "kg",
+   "dealType": "styckpris"
+  },
+  "content": {
+   "title": "Satsumas",
+   "brand": "Spanien",
+   "description": "Klass 1.",
+   "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1440062438/49577.png",
+   "limitations": [
+    "0"
+   ],
+   "weightVolume": "1000",
+   "netContentUnit": "Gram",
+   "onlineProductName": "Satsumas",
+   "parentTitle": "Satsumas"
+  },
+  "clusterInteriorOffers": [],
+  "otherLogos": [],
+  "unifiedSplash": {
+   "value": "20",
+   "decimal": "00",
+   "unit": "kg",
+   "tag": "Medlemspris"
+  }
+ },
+ {
+  "id": "1540-33755-1158546",
+  "weekNumber": 41,
+  "campaignStartDate": "2026-10-05T00:00:00",
+  "campaignEndDate": "2026-10-11T23:59:59",
+  "externalId": "7300322547003",
+  "storeLedgerAccountNumber": "231900",
+  "channelCodes": [
+   "DR",
+   "FS",
+   "TOSÖ"
+  ],
+  "roleDescriptions": [
+   "FS",
+   "MF",
+   "MP",
+   "OF"
+  ],
+  "categoryTeam": {
+   "name": "Djupfryst"
+  },
+  "categoryGroup": "Kolonial",
+  "eagId": 33755,
+  "priceInformation": {
+   "discountValue": 109,
+   "isMemberPrice": true,
+   "minimumAmount": 2,
+   "unit": "st",
+   "dealType": "pris"
+  },
+  "content": {
+   "title": "Kycklinglårfilé",
+   "brand": "Sverige/Kronfågel",
+   "description": "Fryst.",
+   "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1760094541/cloud/539116.png",
+   "amountInformation": "700 g.",
+   "comparativePriceText": "77,86/kg.",
+   "formattedComparativePriceText": "77,86/kg.",
+   "limitations": [
+    "0"
+   ],
+   "enrichedComparisonPrice": "77,86/kg.",
+   "weightVolume": "700",
+   "netContentUnit": "Gram",
+   "onlineProductName": "Kycklinglårfilé mörad",
+   "parentTitle": "Kycklinglårfilé",
+   "parentAmountInformation": "700 g."
+  },
+  "clusterInteriorOffers": [],
+  "otherLogos": [],
+  "unifiedSplash": {
+   "prefix": "2 för",
+   "value": "109:-",
+   "tag": "Medlemspris"
+  }
+ },
+ {
+  "id": "1540-43069-1060011",
+  "weekNumber": 41,
+  "campaignStartDate": "2026-10-05T00:00:00",
+  "campaignEndDate": "2026-10-11T23:59:59",
+  "externalId": "45813",
+  "storeLedgerAccountNumber": "231900",
+  "channelCodes": [
+   "BA",
+   "DR",
+   "FS",
+   "FÖRSTA KÖP"
+  ],
+  "roleDescriptions": [
+   "FS",
+   "GV",
+   "OF",
+   "XP"
+  ],
+  "categoryTeam": {
+   "name": "Bröd"
+  },
+  "categoryGroup": "Färsk",
+  "eagId": 43069,
+  "priceInformation": {
+   "discountValue": 25,
+   "isItemPriceDiscount": true,
+   "unit": "st",
+   "dealType": "styckpris"
+  },
+  "content": {
+   "title": "Skärgårdskaka Hönö",
+   "brand": "Pågen",
+   "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1630257719/cloud/201773.png",
+   "amountInformation": "750 g.",
+   "comparativePriceText": "33,33/kg.",
+   "formattedComparativePriceText": "33,33/kg.",
+   "limitations": [
+    "0"
+   ],
+   "enrichedComparisonPrice": "33,33/kg.",
+   "weightVolume": "750",
+   "netContentUnit": "Gram",
+   "onlineProductName": "Hönö Skärgårdskaka",
+   "parentTitle": "Skärgårdskaka Hönö",
+   "parentAmountInformation": "750 g."
+  },
+  "clusterInteriorOffers": [],
+  "otherLogos": [],
+  "unifiedSplash": {
+   "value": "25:-"
+  }
+ },
+ {
+  "id": "1540-41483-1149100",
+  "weekNumber": 41,
+  "campaignStartDate": "2026-10-05T00:00:00",
+  "campaignEndDate": "2026-10-11T23:59:59",
+  "externalId": "8000500359488",
+  "storeLedgerAccountNumber": "231900",
+  "channelCodes": [
+   "DR",
+   "IB"
+  ],
+  "roleDescriptions": [
+   "MP",
+   "XP"
+  ],
+  "categoryTeam": {
+   "name": "Konfektyr"
+  },
+  "categoryGroup": "Kolonial",
+  "eagId": 41483,
+  "priceInformation": {
+   "discountValue": 42,
+   "minimumAmount": 2,
+   "unit": "st",
+   "dealType": "pris"
+  },
+  "content": {
+   "title": "Chokladkaka",
+   "brand": "Ferrero",
+   "description": "Välj mellan olika sorter.",
+   "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1787215521/cloud/734336.png",
+   "amountInformation": "90 g.",
+   "comparativePriceText": "233,33/kg.",
+   "formattedComparativePriceText": "233,33/kg.",
+   "limitations": [
+    "0"
+   ],
+   "enrichedComparisonPrice": "233,33/kg.",
+   "weightVolume": "90",
+   "netContentUnit": "Gram",
+   "onlineProductName": "Chokladkaka Rocher Original",
+   "parentTitle": "Chokladkaka",
+   "parentAmountInformation": "90 g."
+  },
+  "clusterInteriorOffers": [
+   {
+    "id": "1540-41483-1171492",
+    "weekNumber": 41,
+    "campaignStartDate": "2026-10-05T00:00:00",
+    "campaignEndDate": "2026-10-11T23:59:59",
+    "externalId": "8000500447833",
+    "storeLedgerAccountNumber": "231900",
+    "channelCodes": [
+     "DR",
+     "IB"
+    ],
+    "roleDescriptions": [
+     "MP",
+     "XP"
+    ],
+    "categoryTeam": {
+     "name": "Konfektyr"
+    },
+    "categoryGroup": "Kolonial",
+    "eagId": 41483,
+    "priceInformation": {
+     "discountValue": 42,
+     "minimumAmount": 2,
+     "unit": "st",
+     "dealType": "pris"
+    },
+    "content": {
+     "title": "Chokladkaka Macadamia",
+     "brand": "Ferrero",
+     "description": "Välj mellan olika sorter.",
+     "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1787215521/cloud/734336.png",
+     "amountInformation": "90 Gram",
+     "comparativePriceText": "233,33/kg.",
+     "formattedComparativePriceText": "233,33/kg.",
+     "limitations": [
+      "0"
+     ],
+     "enrichedComparisonPrice": "233,33/kg.",
+     "weightVolume": "90",
+     "netContentUnit": "Gram",
+     "onlineProductName": "Chokladkaka Macadamia",
+     "parentTitle": "Chokladkaka",
+     "parentAmountInformation": "90 g."
+    },
+    "otherLogos": [],
+    "unifiedSplash": {
+     "prefix": "2 för",
+     "value": "42:-"
+    }
+   },
+   {
+    "id": "1540-41483-1149100",
+    "weekNumber": 41,
+    "campaignStartDate": "2026-10-05T00:00:00",
+    "campaignEndDate": "2026-10-11T23:59:59",
+    "externalId": "8000500359488",
+    "storeLedgerAccountNumber": "231900",
+    "channelCodes": [
+     "DR",
+     "IB"
+    ],
+    "roleDescriptions": [
+     "MP",
+     "XP"
+    ],
+    "categoryTeam": {
+     "name": "Konfektyr"
+    },
+    "categoryGroup": "Kolonial",
+    "eagId": 41483,
+    "priceInformation": {
+     "discountValue": 42,
+     "minimumAmount": 2,
+     "unit": "st",
+     "dealType": "pris"
+    },
+    "content": {
+     "title": "Chokladkaka Rocher Original",
+     "brand": "Ferrero",
+     "description": "Välj mellan olika sorter.",
+     "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1759041197/cloud/525590.png",
+     "amountInformation": "90 Gram",
+     "comparativePriceText": "233,33/kg.",
+     "formattedComparativePriceText": "233,33/kg.",
+     "limitations": [
+      "0"
+     ],
+     "enrichedComparisonPrice": "233,33/kg.",
+     "weightVolume": "90",
+     "netContentUnit": "Gram",
+     "onlineProductName": "Chokladkaka Rocher Original",
+     "parentTitle": "Chokladkaka",
+     "parentAmountInformation": "90 g."
+    },
+    "otherLogos": [],
+    "unifiedSplash": {
+     "prefix": "2 för",
+     "value": "42:-"
+    }
+   },
+   {
+    "id": "1540-41483-1162594",
+    "weekNumber": 41,
+    "campaignStartDate": "2026-10-05T00:00:00",
+    "campaignEndDate": "2026-10-11T23:59:59",
+    "externalId": "8000500447895",
+    "storeLedgerAccountNumber": "231900",
+    "channelCodes": [
+     "DR",
+     "IB"
+    ],
+    "roleDescriptions": [
+     "MP",
+     "XP"
+    ],
+    "categoryTeam": {
+     "name": "Konfektyr"
+    },
+    "categoryGroup": "Kolonial",
+    "eagId": 41483,
+    "priceInformation": {
+     "discountValue": 42,
+     "minimumAmount": 2,
+     "unit": "st",
+     "dealType": "pris"
+    },
+    "content": {
+     "title": "Mörk Chokladkaka Rocher hasselnöt",
+     "brand": "Ferrero",
+     "description": "Välj mellan olika sorter.",
+     "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1764514005/cloud/566271.png",
+     "amountInformation": "90 Gram",
+     "comparativePriceText": "233,33/kg.",
+     "formattedComparativePriceText": "233,33/kg.",
+     "limitations": [
+      "0"
+     ],
+     "enrichedComparisonPrice": "233,33/kg.",
+     "weightVolume": "90",
+     "netContentUnit": "Gram",
+     "onlineProductName": "Mörk Chokladkaka Rocher hasselnöt",
+     "parentTitle": "Chokladkaka",
+     "parentAmountInformation": "90 g."
+    },
+    "otherLogos": [],
+    "unifiedSplash": {
+     "prefix": "2 för",
+     "value": "42:-"
+    }
+   },
+   {
+    "id": "1540-41483-1149095",
+    "weekNumber": 41,
+    "campaignStartDate": "2026-10-05T00:00:00",
+    "campaignEndDate": "2026-10-11T23:59:59",
+    "externalId": "8000500359884",
+    "storeLedgerAccountNumber": "231900",
+    "channelCodes": [
+     "DR",
+     "IB"
+    ],
+    "roleDescriptions": [
+     "MP",
+     "XP"
+    ],
+    "categoryTeam": {
+     "name": "Konfektyr"
+    },
+    "categoryGroup": "Kolonial",
+    "eagId": 41483,
+    "priceInformation": {
+     "discountValue": 42,
+     "minimumAmount": 2,
+     "unit": "st",
+     "dealType": "pris"
+    },
+    "content": {
+     "title": "Chokladkaka Rocher Vit",
+     "brand": "Ferrero",
+     "description": "Välj mellan olika sorter.",
+     "imageUrl": "//res.cloudinary.com/coopsverige/image/upload/v1759041200/cloud/525591.png",
+     "amountInformation": "90 Gram",
+     "comparativePriceText": "233,33/kg.",
+     "formattedComparativePriceText": "233,33/kg.",
+     "limitations": [
+      "0"
+     ],
+     "enrichedComparisonPrice": "233,33/kg.",
+     "weightVolume": "90",
+     "netContentUnit": "Gram",
+     "onlineProductName": "Chokladkaka Rocher Vit",
+     "parentTitle": "Chokladkaka",
+     "parentAmountInformation": "90 g."
+    },
+    "otherLogos": [],
+    "unifiedSplash": {
+     "prefix": "2 för",
+     "value": "42:-"
+    }
+   }
+  ],
+  "otherLogos": [],
+  "unifiedSplash": {
+   "prefix": "2 för",
+   "value": "42:-"
+  }
+ }
+]

@@ -6,7 +6,8 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 const app = require('./app');
-const { countUsers, createUser } = require('./db');
+const { countUsers, createUser, getDb } = require('./db');
+const { startDealsScheduler } = require('./deals');
 
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -58,11 +59,16 @@ async function bootstrapDefaultAdminIfNeeded() {
 }
 
 async function start() {
+  // Opening the database runs any pending migrations (e.g. importing the old
+  // meals.json/schedules.json). Do it before accepting requests, so a failed
+  // migration stops the app instead of serving an empty meal list.
+  await getDb();
   await bootstrapDefaultAdminIfNeeded();
 
   app.listen(PORT, () => {
     console.log(`matschema server running on http://localhost:${PORT}`);
   });
+  startDealsScheduler();
 }
 
 start().catch((err) => {

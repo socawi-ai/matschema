@@ -1,189 +1,202 @@
-const fs = require('fs');
-const path = require('path');
+const crypto = require('crypto');
 
-const dataDir = path.join(__dirname, '..', '..', 'data');
-const mealsPath = path.join(dataDir, 'meals.json');
-const schedulesPath = path.join(dataDir, 'schedules.json');
+const { getDb } = require('../db');
+const { inTransaction } = require('../db/transaction');
+const { normalizeMeal } = require('./meal');
 
-function ensureDataFiles() {
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  if (!fs.existsSync(mealsPath)) {
-    fs.writeFileSync(mealsPath, JSON.stringify([], null, 2));
-  }
-
-  if (!fs.existsSync(schedulesPath)) {
-    fs.writeFileSync(schedulesPath, JSON.stringify([], null, 2));
-  }
-}
-
-function readJson(filePath) {
-  ensureDataFiles();
-  const raw = fs.readFileSync(filePath, 'utf8');
-  return JSON.parse(raw);
-}
-
-function writeJson(filePath, value) {
-  ensureDataFiles();
-  fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
-}
-
-function normalizeMeal(meal) {
-  const allowedTags = new Set(['regular', 'vegetarian', 'fish', 'special']);
-  let tags = Array.isArray(meal.tags) ? meal.tags.filter((tag) => allowedTags.has(tag)) : [];
-
-  // Backwards compatibility from legacy model.
-  if (!tags.length) {
-    if (meal.tag && allowedTags.has(meal.tag)) {
-      tags.push(meal.tag);
-    }
-    if (meal.special) {
-      tags.push('special');
-    }
-  }
-
-  const hasDietTag = tags.includes('vegetarian') || tags.includes('fish');
-  if (!hasDietTag) {
-    tags.push('regular');
-  }
-
-  tags = [...new Set(tags)];
-  const primaryTag = tags.includes('vegetarian') ? 'vegetarian' : tags.includes('fish') ? 'fish' : 'regular';
-
-  return {
-    ...meal,
-    ingredients: Array.isArray(meal.ingredients) ? meal.ingredients : [],
-    tags,
-    tag: primaryTag,
-    special: tags.includes('special')
-  };
-}
-
-function getMeals() {
-  const meals = readJson(mealsPath);
-  return meals.map(normalizeMeal);
-}
-
-function addMeal(name, ingredients = [], tags = ['regular']) {
-  const meals = getMeals();
-  const meal = normalizeMeal({
-    id: `${Date.now()}-${Math.floor(Math.random() * 10000)}`,
-    name,
-    ingredients,
-    tags
+function mealFromRow(row) {
+  return normalizeMeal({
+    id: row.id,
+    name: row.name,
+    tags: JSON.parse(row.tags_json),
+    ingredients: JSON.parse(row.ingredients_json)
   });
-  meals.push(meal);
-  writeJson(mealsPath, meals);
+}
+
+// --- Meals ---
+
+async function getMeals() {
+  const db = await getDb();
+  const rows = await db.all('SELECT * FROM meals ORDER BY rowid');
+  return rows.map(mealFromRow);
+}
+
+async function addMeal(name, ingredients = [], tags = ['regular']) {
+  const meal = normalizeMeal({ id: crypto.randomUUID(), name, ingredients, tags });
+  await inTransaction((db) =>
+    db.run(
+      'INSERT INTO meals (id, name, tags_json, ingredients_json, created_at) VALUES (?, ?, ?, ?, ?)',
+      meal.id,
+      meal.name,
+      JSON.stringify(meal.tags),
+      JSON.stringify(meal.ingredients),
+      new Date().toISOString()
+    )
+  );
   return meal;
 }
 
-function updateMealIngredients(mealId, ingredients = []) {
-  const meals = getMeals();
-  const nextMeals = meals.map((meal) => {
-    if (meal.id !== mealId) {
-      return meal;
+// Replaces a meal's editable fields in one go and carries a new name over
+// to the days it's planned on. Returns null if the meal doesn't exist.
+async function updateMeal(mealId, { name, ingredients, tags }) {
+  const meal = normalizeMeal({ id: mealId, name, ingredients, tags });
+  return inTransaction(async (db) => {
+    const result = await db.run(
+      'UPDATE meals SET name = ?, tags_json = ?, ingredients_json = ? WHERE id = ?',
+      meal.name,
+      JSON.stringify(meal.tags),
+      JSON.stringify(meal.ingredients),
+      mealId
+    );
+    if (!result.changes) {
+      return null;
     }
-    return {
-      ...meal,
-      ingredients
-    };
+    await db.run('UPDATE schedule_entries SET meal_name = ? WHERE meal_id = ?', meal.name, mealId);
+    return meal;
   });
-  writeJson(mealsPath, nextMeals);
 }
 
-function updateMealName(mealId, name) {
-  const meals = getMeals();
-  const nextMeals = meals.map((meal) => {
-    if (meal.id !== mealId) {
-      return meal;
+// Days where the meal was planned keep its name as a custom meal: the
+// foreign key sets meal_id to NULL and meal_name stays.
+async function deleteMealById(mealId) {
+  await inTransaction((db) => db.run('DELETE FROM meals WHERE id = ?', mealId));
+}
+
+// --- Schedules ---
+
+async function getSchedules() {
+  return readSchedules(await getDb());
+}
+
+async function readSchedules(db) {
+  const schedules = await db.all('SELECT * FROM schedules ORDER BY week_start');
+  const entries = await db.all('SELECT * FROM schedule_entries ORDER BY schedule_id, day_index');
+
+  const entriesBySchedule = new Map(schedules.map((schedule) => [schedule.id, []]));
+  for (const entry of entries) {
+    const list = entriesBySchedule.get(entry.schedule_id);
+    if (list) {
+      list.push({ day: entry.day, date: entry.date, mealId: entry.meal_id, mealName: entry.meal_name, source: entry.source });
     }
-    return {
-      ...meal,
-      name
-    };
-  });
-  writeJson(mealsPath, nextMeals);
+  }
+
+  return schedules.map((schedule) => ({
+    id: schedule.id,
+    weekStart: schedule.week_start,
+    createdAt: schedule.created_at,
+    entries: entriesBySchedule.get(schedule.id)
+  }));
 }
 
-function updateMealMeta(mealId, { tags }) {
-  const meals = getMeals();
-  const nextMeals = meals.map((meal) => {
-    if (meal.id !== mealId) {
-      return meal;
+// Saves a whole week, replacing any existing week with the same start date.
+async function upsertScheduleByWeekStart(schedule) {
+  await inTransaction((db) => writeSchedule(db, schedule));
+}
+
+// Reads all schedules, lets `plan(schedules)` work out which weeks to save
+// (returns an array of schedules), and saves them – all in one transaction.
+// Nothing else can write in between, so a day the user changes meanwhile is
+// either seen by `plan` or saved afterwards; it's never overwritten with
+// what `plan` computed from older data.
+async function updateSchedules(plan) {
+  return inTransaction(async (db) => {
+    const updated = await plan(await readSchedules(db));
+    for (const schedule of updated) {
+      await writeSchedule(db, schedule);
     }
-    return normalizeMeal({
-      ...meal,
-      tags
-    });
+    return updated;
   });
-  writeJson(mealsPath, nextMeals);
 }
 
-function deleteMealById(mealId) {
-  const meals = getMeals();
-  const nextMeals = meals.filter((meal) => meal.id !== mealId);
-  writeJson(mealsPath, nextMeals);
+async function writeSchedule(db, schedule) {
+  await db.run('DELETE FROM schedules WHERE week_start = ?', schedule.weekStart);
+  await db.run(
+    'INSERT INTO schedules (id, week_start, created_at) VALUES (?, ?, ?)',
+    schedule.id,
+    schedule.weekStart,
+    schedule.createdAt || new Date().toISOString()
+  );
+  for (const [index, entry] of schedule.entries.entries()) {
+    await db.run(
+      'INSERT INTO schedule_entries (schedule_id, day_index, day, date, meal_id, meal_name, source) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      schedule.id,
+      index,
+      entry.day,
+      entry.date,
+      entry.mealId || null,
+      entry.mealName,
+      entry.source === 'auto' ? 'auto' : 'manual'
+    );
+  }
 }
 
-function getSchedules() {
-  return readJson(schedulesPath);
+async function deleteScheduleById(scheduleId) {
+  await inTransaction((db) => db.run('DELETE FROM schedules WHERE id = ?', scheduleId));
 }
 
-function saveSchedule(schedule) {
-  const schedules = getSchedules();
-  schedules.push(schedule);
-  writeJson(schedulesPath, schedules);
+async function removeSchedulesBeforeWeekStart(weekStartIso) {
+  await inTransaction((db) => db.run('DELETE FROM schedules WHERE week_start < ?', weekStartIso));
 }
 
-function upsertScheduleByWeekStart(schedule) {
-  const schedules = getSchedules();
-  const nextSchedules = schedules.filter((item) => item.weekStart !== schedule.weekStart);
-  nextSchedules.push(schedule);
-  writeJson(schedulesPath, nextSchedules);
-}
-
-function deleteScheduleById(scheduleId) {
-  const schedules = getSchedules();
-  const nextSchedules = schedules.filter((schedule) => schedule.id !== scheduleId);
-  writeJson(schedulesPath, nextSchedules);
-}
-
-function removeSchedulesBeforeWeekStart(weekStartIso) {
-  const schedules = getSchedules();
-  const nextSchedules = schedules.filter((schedule) => {
-    if (!schedule.weekStart) return false;
-    return schedule.weekStart >= weekStartIso;
-  });
-  writeJson(schedulesPath, nextSchedules);
-}
-
-function updateScheduleEntriesById(scheduleId, entries) {
-  const schedules = getSchedules();
-  const nextSchedules = schedules.map((schedule) => {
-    if (schedule.id !== scheduleId) {
-      return schedule;
+// Updates a single day of one week. `updateEntry(entry, schedule)` returns
+// the new entry, or null to cancel. Returns the saved entry or null.
+async function updateScheduleEntry(scheduleId, index, updateEntry) {
+  return inTransaction(async (db) => {
+    const schedule = (await readSchedules(db)).find((item) => item.id === scheduleId);
+    if (!schedule || !schedule.entries[index]) {
+      return null;
     }
-    return {
-      ...schedule,
-      entries
-    };
+    const entry = updateEntry(schedule.entries[index], schedule);
+    if (!entry) {
+      return null;
+    }
+    await db.run(
+      'UPDATE schedule_entries SET meal_id = ?, meal_name = ?, source = ? WHERE schedule_id = ? AND day_index = ?',
+      entry.mealId || null,
+      entry.mealName,
+      entry.source === 'auto' ? 'auto' : 'manual',
+      scheduleId,
+      index
+    );
+    return entry;
   });
-  writeJson(schedulesPath, nextSchedules);
+}
+
+// --- Settings ---
+
+async function getRules() {
+  const db = await getDb();
+  const row = await db.get("SELECT value_json FROM settings WHERE key = 'rules'");
+  if (!row) return null;
+  try {
+    return JSON.parse(row.value_json);
+  } catch {
+    return null;
+  }
+}
+
+async function saveRules(rules) {
+  await inTransaction((db) =>
+    db.run(
+      `INSERT INTO settings (key, value_json, updated_at) VALUES ('rules', ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+      JSON.stringify(rules),
+      new Date().toISOString()
+    )
+  );
 }
 
 module.exports = {
   addMeal,
-  deleteScheduleById,
   deleteMealById,
-  removeSchedulesBeforeWeekStart,
+  deleteScheduleById,
   getMeals,
+  getRules,
   getSchedules,
-  saveSchedule,
-  updateScheduleEntriesById,
-  updateMealMeta,
-  updateMealName,
-  updateMealIngredients,
+  removeSchedulesBeforeWeekStart,
+  saveRules,
+  updateMeal,
+  updateScheduleEntry,
+  updateSchedules,
   upsertScheduleByWeekStart
 };

@@ -3,27 +3,31 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Matschema Frontend</title>
+    <title>Matschema</title>
     <script>
       (function () {
-        const saved = localStorage.getItem('matschema-theme');
-        const theme = saved || 'dark';
-        document.documentElement.setAttribute('data-theme', theme);
+        let saved = null;
+        try { saved = localStorage.getItem('matschema-theme'); } catch (_err) {}
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
       })();
     </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="frontend-body">
+    <%
+      const shortDate = (iso) => { const [, m, d] = String(iso || '').split('-'); return d ? `${Number(d)}/${Number(m)}` : ''; };
+    %>
     <main class="frontend-page">
       <header class="frontend-hero">
         <div>
           <p class="frontend-eyebrow">Måltidsplanering</p>
-          <h1>Matschema <span class="app-version">v3</span></h1>
-          <p class="frontend-lead">Tre veckor visas alltid: innevarande vecka och två kommande. Klicka på en måltid för att se ingredienser.</p>
+          <h1>Matschema <span class="app-version">v<%= appVersion %></span></h1>
+          <p class="frontend-lead">Den här veckan och två veckor framåt. Tryck på en rätt för att se ingredienserna.</p>
         </div>
         <div class="actions">
-          <button type="button" id="themeToggle" class="button secondary frontend-theme-toggle" aria-label="Byt färgtema">🌙 Mörkt läge</button>
-          <a class="button frontend-admin-button" href="/auth/login">Admin</a>
+          <button type="button" id="themeToggle" class="button secondary" aria-label="Byt färgtema">🌙 Mörkt läge</button>
+          <a class="button secondary" href="/auth/login">Admin</a>
         </div>
       </header>
 
@@ -31,29 +35,33 @@
         <% weeks.forEach(function(week, weekIndex) { %>
           <article class="frontend-week-card <%= weekIndex === 0 ? 'frontend-week-current' : '' %>">
             <div class="frontend-week-head">
-              <h2>Vecka <%= week.weekNumber %></h2>
+              <h2>
+                Vecka <%= week.weekNumber %>
+                <span class="frontend-week-range"><%= shortDate(week.entries[0].date) %>–<%= shortDate(week.entries[6].date) %></span>
+              </h2>
               <% if (weekIndex === 0) { %>
-                <span class="frontend-pill">Nuvarande</span>
+                <span class="frontend-pill">Denna vecka</span>
               <% } %>
             </div>
 
             <ul class="frontend-day-list">
-              <% week.entries.forEach(function(entry) { %>
-                <li class="frontend-day-item">
-                  <span class="frontend-day-name"><%= entry.day %></span>
+              <% week.entries.forEach(function(entry) {
+                   const isToday = entry.date === today;
+                   const isPlaceholder = !entry.mealId && (entry.mealName === 'Rester' || entry.mealName === 'Ej schemalagd ännu'); %>
+                <li class="frontend-day-item <%= isToday ? 'frontend-day-today' : '' %>">
+                  <span class="frontend-day-name">
+                    <%= entry.day %>
+                    <span class="frontend-day-date"><%= isToday ? 'Idag' : shortDate(entry.date) %></span>
+                  </span>
                   <span class="frontend-meal-wrap">
-                    <% if (entry.ingredients && entry.ingredients.length) { %>
-                      <button
-                        type="button"
-                        class="frontend-meal-button"
-                        data-meal-name="<%= entry.mealName %>"
-                        data-ingredients="<%= entry.ingredients.join('||') %>"
-                      >
+                    <% if (entry.hasIngredients) { %>
+                      <button type="button" class="frontend-meal-button" data-meal-id="<%= entry.mealId %>" title="Visa ingredienser">
                         <%= entry.mealName %>
                       </button>
                     <% } else { %>
-                      <span class="frontend-plain-meal"><%= entry.mealName %></span>
+                      <span class="frontend-plain-meal <%= isPlaceholder ? 'frontend-meal-placeholder' : '' %>"><%= entry.mealName %></span>
                     <% } %>
+                    <span class="frontend-meal-marks" aria-hidden="true"><%= entry.isFish ? '🐟' : '' %><%= entry.isVegetarian ? '🥕' : '' %><%= entry.isSpecial ? '⭐' : '' %></span>
                   </span>
                 </li>
               <% }) %>
@@ -63,7 +71,8 @@
       </section>
     </main>
 
-    <dialog id="ingredientsDialog" class="ingredients-dialog frontend-ingredients-dialog">
+    <dialog id="ingredientsDialog" class="ingredients-dialog">
+      <p class="frontend-eyebrow">Ingredienser</p>
       <h3 id="ingredientsTitle"></h3>
       <ul id="ingredientsList"></ul>
       <form method="dialog">
@@ -71,62 +80,7 @@
       </form>
     </dialog>
 
-    <script>
-      const dialog = document.getElementById('ingredientsDialog');
-      const title = document.getElementById('ingredientsTitle');
-      const list = document.getElementById('ingredientsList');
-      const toggle = document.getElementById('themeToggle');
-
-      function getTheme() {
-        return document.documentElement.getAttribute('data-theme') || 'light';
-      }
-
-      function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        const isDark = theme === 'dark';
-        toggle.textContent = isDark ? '☀️ Ljust läge' : '🌙 Mörkt läge';
-      }
-
-      applyTheme(getTheme());
-
-      toggle.addEventListener('click', () => {
-        const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('matschema-theme', nextTheme);
-        applyTheme(nextTheme);
-      });
-
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      mediaQuery.addEventListener('change', (event) => {
-        if (localStorage.getItem('matschema-theme')) {
-          return;
-        }
-        applyTheme(event.matches ? 'dark' : 'light');
-      });
-
-      dialog.addEventListener('click', (event) => {
-        const rect = dialog.getBoundingClientRect();
-        const clickedInDialog =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-
-        if (!clickedInDialog) {
-          dialog.close();
-        }
-      });
-
-      document.querySelectorAll('.frontend-meal-button').forEach((button) => {
-        button.addEventListener('click', () => {
-          const mealName = button.dataset.mealName || 'Måltid';
-          const ingredientsRaw = button.dataset.ingredients || '';
-          const ingredients = ingredientsRaw.split('||').filter(Boolean);
-
-          title.textContent = `Ingredienser: ${mealName}`;
-          list.innerHTML = ingredients.map((item) => `<li>${item}</li>`).join('');
-          dialog.showModal();
-        });
-      });
-    </script>
+    <script type="application/json" id="meal-data"><%- JSON.stringify(plannedMeals).replace(/</g, '\\u003c') %></script>
+    <script src="/frontend.js"></script>
   </body>
 </html>

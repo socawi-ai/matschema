@@ -6,7 +6,8 @@
     <title>Matschema HA</title>
     <script>
       (function () {
-        const saved = localStorage.getItem('matschema-theme');
+        let saved = null;
+        try { saved = localStorage.getItem('matschema-theme'); } catch (_err) {}
         const theme = saved || 'dark';
         document.documentElement.setAttribute('data-theme', theme);
       })();
@@ -23,13 +24,8 @@
               <% week.entries.forEach(function(entry) { %>
                 <div class="ha-day-cell <%= entry.date === today ? 'ha-day-today' : '' %>">
                   <div class="ha-day-name"><%= entry.day.slice(0, 3) %></div>
-                  <% if (entry.ingredients && entry.ingredients.length) { %>
-                    <button
-                      type="button"
-                      class="ha-meal-button"
-                      data-meal-name="<%= entry.mealName %>"
-                      data-ingredients="<%= entry.ingredients.join('||') %>"
-                    >
+                  <% if (entry.hasIngredients) { %>
+                    <button type="button" class="ha-meal-button" data-meal-id="<%= entry.mealId %>">
                       <%= entry.mealName %>
                     </button>
                   <% } else { %>
@@ -43,7 +39,8 @@
       </section>
     </main>
 
-    <dialog id="ingredientsDialog" class="ingredients-dialog frontend-ingredients-dialog">
+    <dialog id="ingredientsDialog" class="ingredients-dialog">
+      <p class="frontend-eyebrow">Ingredienser</p>
       <h3 id="ingredientsTitle"></h3>
       <ul id="ingredientsList"></ul>
       <form method="dialog">
@@ -52,34 +49,16 @@
     </dialog>
 
     <script>
-      const dialog = document.getElementById('ingredientsDialog');
-      const title = document.getElementById('ingredientsTitle');
-      const list = document.getElementById('ingredientsList');
-
-      dialog.addEventListener('click', (event) => {
-        const rect = dialog.getBoundingClientRect();
-        const clickedInDialog =
-          event.clientX >= rect.left &&
-          event.clientX <= rect.right &&
-          event.clientY >= rect.top &&
-          event.clientY <= rect.bottom;
-
-        if (!clickedInDialog) {
-          dialog.close();
+      // Iframe-embedded dashboards stay open for days; reload periodically so
+      // schedule edits and the "today" highlight don't go stale.
+      setInterval(() => {
+        if (!document.getElementById('ingredientsDialog').open) {
+          location.reload();
         }
-      });
-
-      document.querySelectorAll('.ha-meal-button').forEach((button) => {
-        button.addEventListener('click', () => {
-          const mealName = button.dataset.mealName || 'Måltid';
-          const ingredientsRaw = button.dataset.ingredients || '';
-          const ingredients = ingredientsRaw.split('||').filter(Boolean);
-
-          title.textContent = `Ingredienser: ${mealName}`;
-          list.innerHTML = ingredients.map((item) => `<li>${item}</li>`).join('');
-          dialog.showModal();
-        });
-      });
+      }, 5 * 60 * 1000);
     </script>
+
+    <script type="application/json" id="meal-data"><%- JSON.stringify(plannedMeals).replace(/</g, '\\u003c') %></script>
+    <script src="/frontend.js"></script>
   </body>
 </html>

@@ -15,436 +15,577 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="admin-body">
+    <%
+      const TYPE_LABELS = { regular: '🍽 Vanlig', vegetarian: '🥕 Vegetarisk', fish: '🐟 Fisk', special: '⭐ Special' };
+      const mealType = (meal) => (meal.tags || []).includes('vegetarian') ? 'vegetarian' : ((meal.tags || []).includes('fish') ? 'fish' : 'regular');
+      const shortDate = (iso) => { const [, m, d] = String(iso || '').split('-'); return d ? `${Number(d)}/${Number(m)}` : ''; };
+      // Deal dates are full ISO timestamps; show them as local day/month.
+      const dealDate = (iso) => { if (!iso) return ''; const d = new Date(iso); return `${d.getDate()}/${d.getMonth() + 1}`; };
+      const WEEKDAYS = ['söndag', 'måndag', 'tisdag', 'onsdag', 'torsdag', 'fredag', 'lördag'];
+      const now = new Date();
+      const todayLabel = `${WEEKDAYS[now.getDay()]} ${now.getDate()}/${now.getMonth() + 1}`;
+      const endsToday = (iso) => Boolean(iso) && new Date(iso).toDateString() === now.toDateString();
+      const nextWeekEnd = new Date(nextWeekStart.getFullYear(), nextWeekStart.getMonth(), nextWeekStart.getDate() + 7);
+      const nextWeekLabel = `${dealDate(nextWeekStart)}–${dealDate(new Date(nextWeekEnd.getTime() - 1))}`;
+      // Stores that have published offers starting next week (others only
+      // contribute offers that happen to run on into next week).
+      const storesWithNextWeek = new Set(deals.filter((d) => d.validFrom && new Date(d.validFrom) >= nextWeekStart).map((d) => d.storeId));
+      const storesWithoutNextWeek = dealStores.filter((s) => s.enabled && !storesWithNextWeek.has(s.id)).map((s) => s.name);
+      const timeAgo = (iso) => {
+        if (!iso) return 'aldrig';
+        const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+        if (minutes < 1) return 'nyss';
+        if (minutes < 60) return `för ${minutes} min sedan`;
+        const hours = Math.round(minutes / 60);
+        return hours < 24 ? `för ${hours} h sedan` : `för ${Math.round(hours / 24)} d sedan`;
+      };
+    %>
     <div id="toast-container" class="toast-container" aria-live="polite"></div>
     <main class="page admin-page">
       <header class="frontend-hero admin-hero">
-        <h1>Admin <span class="app-version">v3</span></h1>
+        <div>
+          <h1>Matschema admin <span class="app-version">v<%= appVersion %></span></h1>
+          <p class="admin-userline">Inloggad som <strong id="current-username"><%= currentUser ? (currentUser.username || currentUser.email) : "okänd" %></strong></p>
+        </div>
         <div class="actions">
-          <a class="button" href="/frontend">Frontend</a>
-          <a class="button secondary" href="/">Start</a>
-          <button type="button" id="themeToggle" class="button secondary frontend-theme-toggle" aria-label="Byt färgtema">🌙 Mörkt läge</button>
-          <button type="button" class="button secondary" onclick="document.getElementById('user-settings-dialog').showModal()">
-            Användarinställningar
-          </button>
+          <a class="button secondary" href="/frontend" target="_blank" rel="noopener">Visa schemat ↗</a>
+          <button type="button" id="themeToggle" class="button secondary" aria-label="Byt färgtema">🌙 Mörkt läge</button>
           <form method="post" action="/auth/logout">
             <button type="submit" class="button secondary">Logga ut</button>
           </form>
         </div>
       </header>
-      <p class="admin-userline">Inloggad som <strong><%= currentUser ? (currentUser.username || currentUser.email) : "okänd" %></strong></p>
 
       <% if (error) { %>
         <p class="message error"><%= error %></p>
       <% } %>
 
-      <dialog id="user-settings-dialog" class="admin-meal-dialog">
-        <div class="dialog-head">
-          <h3>Användarinställningar</h3>
-          <button type="button" class="button secondary" onclick="document.getElementById('user-settings-dialog').close()">Stäng</button>
-        </div>
+      <nav class="admin-tabs" role="tablist">
+        <button type="button" class="admin-tab" role="tab" data-tab="schema">📅 Schema</button>
+        <button type="button" class="admin-tab" role="tab" data-tab="maltider">🍽 Måltider</button>
+        <button type="button" class="admin-tab" role="tab" data-tab="erbjudanden">🏷 Erbjudanden</button>
+        <button type="button" class="admin-tab" role="tab" data-tab="installningar">⚙️ Inställningar</button>
+      </nav>
 
-        <% if (typeof settingsMessage !== "undefined" && settingsMessage) { %>
-          <p class="message success"><%= settingsMessage %></p>
-        <% } %>
-        <% if (typeof settingsError !== "undefined" && settingsError) { %>
-          <p class="message error"><%= settingsError %></p>
-        <% } %>
-
-        <h3>Uppdatera användarnamn</h3>
-        <form method="post" action="/backend/settings/username" class="settings-form">
-          <label for="username">Nytt användarnamn</label>
-          <input id="username" name="username" type="text" value="<%= currentUser ? (currentUser.username || currentUser.email) : '' %>" required />
-
-          <label for="emailCurrentPassword">Nuvarande lösenord</label>
-          <input id="emailCurrentPassword" name="currentPassword" type="password" required />
-
-          <button type="submit" class="button">Uppdatera användarnamn</button>
-        </form>
-
-        <h3>Byt lösenord</h3>
-        <form method="post" action="/backend/settings/password" class="settings-form">
-          <label for="passwordCurrent">Nuvarande lösenord</label>
-          <input id="passwordCurrent" name="currentPassword" type="password" required />
-
-          <label for="passwordNew">Nytt lösenord</label>
-          <input id="passwordNew" name="newPassword" type="password" minlength="8" required />
-
-          <label for="passwordConfirm">Bekräfta nytt lösenord</label>
-          <input id="passwordConfirm" name="confirmPassword" type="password" minlength="8" required />
-
-          <button type="submit" class="button">Byt lösenord</button>
-        </form>
-      </dialog>
-
-      <div class="top-tools-grid">
-        <section class="card compact-card" id="card-add-meal" data-preserve-anchor>
-          <h2>Lägg till måltid</h2>
-          <form id="add-meal-form" method="post" action="/backend/meals" class="settings-form" data-async data-refresh-target="#card-meal-database">
-            <label for="mealName">Måltidsnamn</label>
-            <input id="mealName" type="text" name="name" placeholder="t.ex. Kycklinggryta" />
-            <div class="inline-check-group">
-              <label class="inline-check">
-                <input type="checkbox" name="isVegetarian" />
-                🥕 Vegetarisk
-              </label>
-              <label class="inline-check">
-                <input type="checkbox" name="isFish" />
-                🐟 Fisk
-              </label>
-            </div>
-            <label class="inline-check">
-              <input type="checkbox" name="special" />
-              ⭐ Specialmåltid (för fredagar/lördagar)
-            </label>
-            <label for="mealIngredients">Ingredienser (en per rad eller kommaseparerat)</label>
-            <textarea
-              id="mealIngredients"
-              name="ingredients"
-              rows="5"
-              placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
-            ></textarea>
-            <button type="submit" class="button">Lägg till</button>
-          </form>
-        </section>
-        <section class="card compact-card">
-          <h2>Planeringsregler</h2>
-          <form id="planning-rules-form" method="post" action="/backend/rules" class="settings-form" data-async data-autosave>
-            <label for="planningHorizonWeeks">Antal veckor framåt</label>
-            <input id="planningHorizonWeeks" type="number" min="1" max="12" name="planningHorizonWeeks" value="<%= rules.planningHorizonWeeks %>" />
-
-            <p class="muted">Fiskdag: Slumpas till en dag mellan måndag och torsdag varje vecka.</p>
-
-            <label for="vegetarianMealsPerWeek">Vegetariska måltider per vecka</label>
-            <input id="vegetarianMealsPerWeek" type="number" min="0" max="7" name="vegetarianMealsPerWeek" value="<%= rules.vegetarianMealsPerWeek %>" />
-
-            <label for="fishMealsPerWeek">Fiskmåltider per vecka</label>
-            <input id="fishMealsPerWeek" type="number" min="0" max="7" name="fishMealsPerWeek" value="<%= rules.fishMealsPerWeek %>" />
-
-            <fieldset class="day-choice-group">
-              <legend>Specialdagar</legend>
-              <div class="day-check-grid">
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Måndag" <%= rules.specialDays.includes('Måndag') ? 'checked' : '' %> /> Måndag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Tisdag" <%= rules.specialDays.includes('Tisdag') ? 'checked' : '' %> /> Tisdag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Onsdag" <%= rules.specialDays.includes('Onsdag') ? 'checked' : '' %> /> Onsdag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Torsdag" <%= rules.specialDays.includes('Torsdag') ? 'checked' : '' %> /> Torsdag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Fredag" <%= rules.specialDays.includes('Fredag') ? 'checked' : '' %> /> Fredag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Lördag" <%= rules.specialDays.includes('Lördag') ? 'checked' : '' %> /> Lördag</label>
-                <label class="inline-check"><input type="checkbox" name="specialDays" value="Söndag" <%= rules.specialDays.includes('Söndag') ? 'checked' : '' %> /> Söndag</label>
-              </div>
-            </fieldset>
-
-            <fieldset class="day-choice-group">
-              <legend>Dagar för vegetariskt</legend>
-              <div class="day-check-grid">
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Måndag" <%= rules.vegetarianAllowedDays.includes('Måndag') ? 'checked' : '' %> /> Måndag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Tisdag" <%= rules.vegetarianAllowedDays.includes('Tisdag') ? 'checked' : '' %> /> Tisdag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Onsdag" <%= rules.vegetarianAllowedDays.includes('Onsdag') ? 'checked' : '' %> /> Onsdag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Torsdag" <%= rules.vegetarianAllowedDays.includes('Torsdag') ? 'checked' : '' %> /> Torsdag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Fredag" <%= rules.vegetarianAllowedDays.includes('Fredag') ? 'checked' : '' %> /> Fredag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Lördag" <%= rules.vegetarianAllowedDays.includes('Lördag') ? 'checked' : '' %> /> Lördag</label>
-                <label class="inline-check"><input type="checkbox" name="vegetarianAllowedDays" value="Söndag" <%= rules.vegetarianAllowedDays.includes('Söndag') ? 'checked' : '' %> /> Söndag</label>
-              </div>
-            </fieldset>
-
-            <label class="inline-check">
-              <input type="checkbox" name="sameSpecialAcrossSpecialDays" <%= rules.sameSpecialAcrossSpecialDays ? 'checked' : '' %> />
-              Samma specialmåltid på alla specialdagar
-            </label>
-
-            <p class="autosave-hint" id="rules-autosave-status">Ändringar sparas automatiskt.</p>
-          </form>
-        </section>
-      </div>
-
-      <section class="card" id="card-meal-database" data-preserve-anchor>
-        <h2>Måltidsdatabas</h2>
-        <% if (!regularMeals.length && !specialMeals.length) { %>
-          <p>Inga måltider ännu.</p>
-        <% } else { %>
-          <div class="two-col-grid">
-            <div>
-              <h3>Vanliga måltider</h3>
-              <ul class="meal-list">
-                <% regularMeals.forEach(function(meal) { %>
-                  <li id="meal-<%= meal.id %>" data-preserve-anchor>
-                    <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
-                      <%= meal.name %> <span class="meal-tag"><%= meal.tag === 'vegetarian' ? '🥕' : (meal.tag === 'fish' ? '🐟' : '🍽') %><%= (meal.tags || []).includes('special') ? '⭐' : '' %></span>
-                    </button>
-
-                    <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
-                      <div class="dialog-head">
-                        <h3><%= meal.name %></h3>
-                        <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
-                      </div>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/name" class="settings-form" data-async data-refresh-target="#card-meal-database">
-                        <label for="name-<%= meal.id %>">Namn</label>
-                        <input
-                          type="text"
-                          id="name-<%= meal.id %>"
-                          name="name"
-                          value="<%= meal.name %>"
-                          required
-                        />
-                        <button type="submit" class="button secondary">Spara namn</button>
-                      </form>
-
-                      <% if (!meal.ingredients || !meal.ingredients.length) { %>
-                        <p>Inga ingredienser angivna.</p>
-                      <% } else { %>
-                        <ul>
-                          <% meal.ingredients.forEach(function(ingredient) { %>
-                            <li><%= ingredient %></li>
-                          <% }) %>
-                        </ul>
-                      <% } %>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/meta" class="settings-form" data-async data-refresh-target="#card-meal-database">
-                        <div class="inline-check-group">
-                          <label class="inline-check">
-                            <input type="checkbox" name="isVegetarian" <%= meal.tag === 'vegetarian' ? 'checked' : '' %> />
-                            🥕 Vegetarisk
-                          </label>
-                          <label class="inline-check">
-                            <input type="checkbox" name="isFish" <%= meal.tag === 'fish' ? 'checked' : '' %> />
-                            🐟 Fisk
-                          </label>
-                        </div>
-                        <label class="inline-check">
-                          <input type="checkbox" name="special" <%= meal.special ? 'checked' : '' %> />
-                          ⭐ Specialmåltid
-                        </label>
-                        <button type="submit" class="button secondary">Spara taggar</button>
-                      </form>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form" data-async data-refresh-target="#card-meal-database">
-                        <label for="ingredients-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
-                        <textarea
-                          id="ingredients-<%= meal.id %>"
-                          name="ingredients"
-                          rows="5"
-                          placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
-                        ><%= (meal.ingredients || []).join('\n') %></textarea>
-                        <button type="submit" class="button secondary">Spara ingredienser</button>
-                      </form>
-                      <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form" data-async data-refresh-target="#card-meal-database">
-                        <button type="submit" class="button danger">Ta bort måltid</button>
-                      </form>
-                    </dialog>
-                  </li>
-                <% }) %>
-              </ul>
-            </div>
-            <div>
-              <h3>Specialmåltider</h3>
-              <ul class="meal-list">
-                <% specialMeals.forEach(function(meal) { %>
-                  <li id="meal-<%= meal.id %>" data-preserve-anchor>
-                    <button type="button" class="meal-open-button" onclick="document.getElementById('meal-dialog-<%= meal.id %>').showModal()">
-                      <%= meal.name %> <span class="meal-tag"><%= meal.tag === 'vegetarian' ? '🥕' : (meal.tag === 'fish' ? '🐟' : '🍽') %><%= (meal.tags || []).includes('special') ? '⭐' : '' %></span>
-                    </button>
-                    <dialog id="meal-dialog-<%= meal.id %>" class="admin-meal-dialog">
-                      <div class="dialog-head">
-                        <h3><%= meal.name %></h3>
-                        <button type="button" class="button secondary" onclick="document.getElementById('meal-dialog-<%= meal.id %>').close()">Stäng</button>
-                      </div>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/name" class="settings-form" data-async data-refresh-target="#card-meal-database">
-                        <label for="name-special-<%= meal.id %>">Namn</label>
-                        <input
-                          type="text"
-                          id="name-special-<%= meal.id %>"
-                          name="name"
-                          value="<%= meal.name %>"
-                          required
-                        />
-                        <button type="submit" class="button secondary">Spara namn</button>
-                      </form>
-
-                      <% if (!meal.ingredients || !meal.ingredients.length) { %>
-                        <p>Inga ingredienser angivna.</p>
-                      <% } else { %>
-                        <ul>
-                          <% meal.ingredients.forEach(function(ingredient) { %>
-                            <li><%= ingredient %></li>
-                          <% }) %>
-                        </ul>
-                      <% } %>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/meta" class="settings-form" data-async data-refresh-target="#card-meal-database">
-                        <div class="inline-check-group">
-                          <label class="inline-check">
-                            <input type="checkbox" name="isVegetarian" <%= meal.tag === 'vegetarian' ? 'checked' : '' %> />
-                            🥕 Vegetarisk
-                          </label>
-                          <label class="inline-check">
-                            <input type="checkbox" name="isFish" <%= meal.tag === 'fish' ? 'checked' : '' %> />
-                            🐟 Fisk
-                          </label>
-                        </div>
-                        <label class="inline-check">
-                          <input type="checkbox" name="special" <%= meal.special ? 'checked' : '' %> />
-                          ⭐ Specialmåltid
-                        </label>
-                        <button type="submit" class="button secondary">Spara taggar</button>
-                      </form>
-
-                      <form method="post" action="/backend/meals/<%= meal.id %>/ingredients" class="settings-form meal-edit-form" data-async data-refresh-target="#card-meal-database">
-                        <label for="ingredients-special-<%= meal.id %>">Redigera ingredienser (en per rad eller kommaseparerat)</label>
-                        <textarea
-                          id="ingredients-special-<%= meal.id %>"
-                          name="ingredients"
-                          rows="5"
-                          placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"
-                        ><%= (meal.ingredients || []).join('\n') %></textarea>
-                        <button type="submit" class="button secondary">Spara ingredienser</button>
-                      </form>
-                      <form method="post" action="/backend/meals/<%= meal.id %>/delete" class="meal-delete-form" data-async data-refresh-target="#card-meal-database">
-                        <button type="submit" class="button danger">Ta bort måltid</button>
-                      </form>
-                    </dialog>
-                  </li>
-                <% }) %>
-              </ul>
-            </div>
+      <!-- ============ Schema ============ -->
+      <section class="tab-panel" id="tab-schema" role="tabpanel">
+        <div id="schedule-section">
+          <%
+            const preferredMealIds = new Set(dealPlanning.preferredMealIds);
+            const inDealPeriod = (date) => date >= dealPlanning.from && date < dealPlanning.to;
+          %>
+          <script type="application/json" id="deal-planning-data"><%- JSON.stringify(dealPlanning).replace(/</g, '\\u003c') %></script>
+          <div class="panel-toolbar">
+            <form method="post" action="/backend/schedule/generate" data-async data-refresh="#schedule-section">
+              <button type="submit" class="button">✨ Fyll tomma dagar</button>
+            </form>
+            <% if (dealPlanning.active) { %>
+              <form
+                method="post"
+                action="/backend/schedule/replan"
+                data-async
+                data-refresh="#schedule-section"
+                data-busy-text="Planerar…"
+                data-confirm="Planera om genererade dagar <%= dealPlanning.periodLabel %> med veckans erbjudanden? Dagar du valt själv behålls."
+              >
+                <button type="submit" class="button secondary">🏷 Planera om med erbjudanden</button>
+              </form>
+            <% } %>
+            <p class="muted">Fyller tomma dagar <%= rules.planningHorizonWeeks %> veckor framåt enligt reglerna. Dagar du redan valt ändras inte.</p>
           </div>
-        <% } %>
+          <% if (dealPlanning.active) { %>
+            <div class="deal-planning-info">
+              <label class="deal-store-choice">
+                🏷 Handla på
+                <select id="shopping-store">
+                  <option value="auto" <%= dealPlanning.chosenStore === 'auto' ? 'selected' : '' %>>Automatiskt – bäst just nu</option>
+                  <% dealPlanning.storeRanking.forEach(function(r) { %>
+                    <option value="<%= r.storeId %>" <%= dealPlanning.chosenStore === r.storeId ? 'selected' : '' %>><%= r.name %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <% if (!dealPlanning.storeRanking.length) { %>
+                <p>Inga butiker valda för storhandling. Välj dem under Inställningar.</p>
+              <% } else if (dealPlanning.storeId && preferredMealIds.size) { %>
+                <p>
+                  Rätter med erbjudanden på huvudråvaran hos <strong><%= dealPlanning.storeName %></strong> väljs först
+                  <strong><%= dealPlanning.periodLabel %></strong> (<%= preferredMealIds.size %> av <%= meals.length %> rätter).
+                </p>
+              <% } else { %>
+                <p>Inga erbjudanden på dina rätters huvudråvaror just nu, så schemat fylls som vanligt.</p>
+              <% } %>
+              <% if (dealPlanning.storeRanking.length > 1) { %>
+                <p class="muted">
+                  Rätter med erbjudanden per butik:
+                  <%= dealPlanning.storeRanking.map((r) => `${r.name} ${r.mealCount}`).join(' · ') %>
+                </p>
+              <% } %>
+            </div>
+          <% } %>
+
+          <% if (!schedules.length) { %>
+            <div class="card empty-state">
+              <p>Inget schema ännu. Tryck på <strong>Fyll tomma dagar</strong> så skapas veckorna automatiskt.</p>
+            </div>
+          <% } %>
+
+          <% schedules.forEach(function(schedule) {
+               const isCurrent = schedule.entries.some((e) => e.date === today); %>
+            <article class="card week-card <%= isCurrent ? 'week-current' : '' %>">
+              <div class="week-card-head">
+                <h2>
+                  Vecka <%= schedule.weekNumber %>
+                  <span class="muted week-range"><%= shortDate(schedule.entries[0] && schedule.entries[0].date) %>–<%= shortDate(schedule.entries[6] && schedule.entries[6].date) %></span>
+                  <% if (isCurrent) { %><span class="pill">Denna vecka</span><% } %>
+                </h2>
+                <form method="post" action="/backend/schedule/<%= schedule.id %>/delete" data-async data-refresh="#schedule-section" data-confirm="Ta bort vecka <%= schedule.weekNumber %>? Den kan fyllas igen efteråt.">
+                  <button type="submit" class="button secondary icon-button" title="Ta bort veckan">🗑</button>
+                </form>
+              </div>
+
+              <ul class="day-rows">
+                <% schedule.entries.forEach(function(entry, idx) {
+                     const isEmpty = !entry.mealId && entry.mealName === EMPTY_DAY_NAME;
+                     const isCustom = !entry.mealId && !isEmpty;
+                     const isSpecialDay = rules.specialDays.includes(entry.day); %>
+                  <li class="day-row <%= entry.date === today ? 'day-today' : '' %>">
+                    <div class="day-label">
+                      <strong><%= entry.day %></strong>
+                      <span class="muted"><%= shortDate(entry.date) %><%= isSpecialDay ? ' ⭐' : '' %></span>
+                    </div>
+                    <button
+                      type="button"
+                      class="day-meal <%= isEmpty ? 'is-empty' : '' %>"
+                      data-schedule-id="<%= schedule.id %>"
+                      data-index="<%= idx %>"
+                      data-day="<%= entry.day %>"
+                      data-special-day="<%= isSpecialDay ? '1' : '' %>"
+                      data-meal-id="<%= entry.mealId || '' %>"
+                      title="Byt måltid"
+                    >
+                      <% if (isEmpty) { %>
+                        Tom <span class="muted">– visas som Rester tills den fylls</span>
+                      <% } else { %>
+                        <%= entry.mealName %><% if (isCustom) { %> <span class="badge">egen</span><% } %>
+                      <% } %>
+                    </button>
+                    <div class="day-actions">
+                      <% if (dealPlanning.active && entry.mealId && preferredMealIds.has(entry.mealId) && inDealPeriod(entry.date)) { %>
+                        <button type="button" class="button secondary icon-button meal-deals-button" data-meal-id="<%= entry.mealId %>" data-meal-name="<%= entry.mealName %>" title="Huvudråvaran finns på erbjudande – visa vilka">🏷</button>
+                      <% } %>
+                      <button type="button" class="button secondary icon-button day-action" data-action="random" data-schedule-id="<%= schedule.id %>" data-index="<%= idx %>" title="Slumpa en annan måltid">🎲</button>
+                    </div>
+                  </li>
+                <% }) %>
+              </ul>
+            </article>
+          <% }) %>
+        </div>
       </section>
 
-      <section class="card" id="card-generated-schedules" data-preserve-anchor>
-        <div class="schedule-header">
-          <h2>Genererade scheman</h2>
-          <form method="post" action="/backend/schedule/generate" data-async data-refresh-target="#card-generated-schedules">
-            <button type="submit" class="button" title="Fyll kommande 3 veckor">Fyll kommande 3 veckor</button>
-          </form>
+      <!-- ============ Måltider ============ -->
+      <section class="tab-panel" id="tab-maltider" role="tabpanel" hidden>
+        <div class="panel-toolbar">
+          <input type="search" id="meal-search" placeholder="Sök måltid eller ingrediens…" autocomplete="off" />
+          <button type="button" class="button" id="new-meal-button">+ Ny måltid</button>
         </div>
-        <p class="muted">Fyller innevarande vecka och två kommande veckor.</p>
-        <% if (!schedules.length) { %>
-          <p>Inga scheman har genererats ännu.</p>
-        <% } else { %>
-          <div class="schedule-list">
-            <% schedules.forEach(function(schedule) { %>
-              <article class="schedule-week card compact-card" id="schedule-<%= schedule.id %>" data-preserve-anchor>
-                <div class="schedule-header">
-                  <h3>Vecka <%= schedule.weekNumber %></h3>
-                  <form method="post" action="/backend/schedule/delete" data-async data-refresh-target="#card-generated-schedules">
-                    <input type="hidden" name="scheduleId" value="<%= schedule.id %>" />
-                    <button type="submit" class="button danger icon-button" title="Ta bort vecka">🗑</button>
+
+        <div id="meals-section">
+          <script type="application/json" id="meals-data"><%- JSON.stringify(meals.map((meal) => ({ id: meal.id, name: meal.name, type: mealType(meal), special: Boolean(meal.special), ingredients: meal.ingredients || [], mainCategories: meal.mainCategories, ingredientCategories: meal.ingredientCategories }))).replace(/</g, '\\u003c') %></script>
+
+          <% if (!meals.length) { %>
+            <div class="card empty-state"><p>Inga måltider ännu. Lägg till din första med <strong>+ Ny måltid</strong>.</p></div>
+          <% } else { %>
+            <p class="muted meal-count"><%= meals.length %> måltider · klicka på en måltid för att ändra den</p>
+            <ul class="meal-rows">
+              <% meals.forEach(function(meal) { %>
+                <li>
+                  <button
+                    type="button"
+                    class="meal-row"
+                    data-meal-id="<%= meal.id %>"
+                    data-search="<%= (meal.name + ' ' + (meal.ingredients || []).join(' ')).toLowerCase() %>"
+                  >
+                    <span class="meal-row-name"><%= meal.name %></span>
+                    <span class="meal-row-tags">
+                      <span class="badge"><%= TYPE_LABELS[mealType(meal)] %></span>
+                      <% if (meal.special) { %><span class="badge badge-special"><%= TYPE_LABELS.special %></span><% } %>
+                      <% if (meal.mainCategories.length) { %>
+                        <% meal.mainCategories.forEach(function(id) { const c = everydayCategories.find((x) => x.id === id); %>
+                          <span class="badge badge-main" title="Huvudråvara – styr om rätten prioriteras vid erbjudanden"><%= c.emoji %> <%= c.label %></span>
+                        <% }) %>
+                      <% } else { %>
+                        <span class="muted" title="Ingen ingrediens räknas som huvudråvara, så rätten prioriteras aldrig av erbjudanden">ingen huvudråvara</span>
+                      <% } %>
+                      <span class="muted"><%= (meal.ingredients || []).length %> ingr.</span>
+                    </span>
+                  </button>
+                </li>
+              <% }) %>
+            </ul>
+            <p class="muted" id="meal-search-empty" hidden>Ingen måltid matchar sökningen.</p>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- ============ Erbjudanden ============ -->
+      <section class="tab-panel" id="tab-erbjudanden" role="tabpanel" hidden>
+        <div id="deals-section">
+          <div class="card compact-card deal-stores">
+            <div class="deal-stores-head">
+              <h2>Butiker</h2>
+              <form method="post" action="/backend/deals/refresh" data-async data-refresh="#deals-section" data-busy-text="Hämtar…">
+                <button type="submit" class="button">🔄 Uppdatera nu</button>
+              </form>
+            </div>
+            <ul class="deal-store-list">
+              <% dealStores.forEach(function(store) { %>
+                <li class="deal-store <%= store.enabled ? '' : 'is-disabled' %>">
+                  <form method="post" action="/backend/deals/stores/<%= store.id %>" data-async data-refresh="#deals-section" data-autosubmit>
+                    <label class="switch" title="Visa erbjudanden från <%= store.name %>">
+                      <input type="checkbox" name="enabled" <%= store.enabled ? 'checked' : '' %> />
+                      <span class="deal-store-name"><%= store.name %></span>
+                    </label>
                   </form>
-                </div>
-                <form method="post" action="/backend/schedule/<%= schedule.id %>/update" class="settings-form" data-autosave data-async data-refresh-target="#card-generated-schedules">
-                  <div class="week-days-grid">
-                    <% schedule.entries.forEach(function(entry, idx) { %>
-                      <div class="day-box <%= idx < 4 ? 'row-top' : 'row-bottom' %>">
-                        <div class="day-box-head">
-                          <strong><%= entry.day %></strong>
-                          <div class="day-box-actions">
-                            <button type="button" class="button secondary icon-button set-leftovers-btn" title="Sätt som Rester/Matlåda">🍱</button>
-                            <button type="submit" class="button secondary icon-button" name="randomIndex" value="<%= idx %>" title="Slumpa ny måltid">🎲</button>
-                          </div>
-                        </div>
-                        <input type="hidden" name="mealIds[]" value="<%= entry.mealId || '' %>" />
-                        <input type="hidden" name="customMeals[]" value="<%= entry.mealId ? '' : (entry.mealName || '') %>" />
-                        <div class="selected-meal"><%= entry.mealName %></div>
-                        <button type="button" class="button secondary open-day-picker" data-dialog-id="picker-<%= schedule.id %>-<%= idx %>">Välj</button>
-
-                        <dialog id="picker-<%= schedule.id %>-<%= idx %>" class="day-picker-dialog">
-                          <div class="dialog-head">
-                            <h4><%= entry.day %> - välj måltid</h4>
-                            <button type="button" class="button secondary close-day-picker">Stäng</button>
-                          </div>
-
-                          <div class="tag-group">
-                            <h5>⭐ Special</h5>
-                            <div class="tag-buttons">
-                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('special')) { %>
-                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
-                              <% } }) %>
-                            </div>
-                          </div>
-
-                          <div class="tag-group">
-                            <h5>🥕 Vegetariskt</h5>
-                            <div class="tag-buttons">
-                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('vegetarian')) { %>
-                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
-                              <% } }) %>
-                            </div>
-                          </div>
-
-                          <div class="tag-group">
-                            <h5>🐟 Fisk</h5>
-                            <div class="tag-buttons">
-                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('fish')) { %>
-                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
-                              <% } }) %>
-                            </div>
-                          </div>
-
-                          <div class="tag-group">
-                            <h5>🍽 Regular</h5>
-                            <div class="tag-buttons">
-                              <% meals.forEach(function(meal) { if ((meal.tags || []).includes('regular')) { %>
-                                <button type="button" class="button secondary pick-meal-btn" data-meal-id="<%= meal.id %>" data-meal-name="<%= meal.name %>"><%= meal.name %></button>
-                              <% } }) %>
-                            </div>
-                          </div>
-
-                          <div class="tag-group">
-                            <h5>Egen måltid</h5>
-                            <div class="custom-meal-row">
-                              <input type="text" class="custom-meal-input" placeholder="Skriv egen måltid" />
-                              <button type="button" class="button save-custom-btn">Spara</button>
-                            </div>
-                          </div>
-                        </dialog>
-                      </div>
-                    <% }) %>
-                  </div>
-                  <p class="autosave-hint">Ändringar sparas automatiskt.</p>
-                </form>
-              </article>
-            <% }) %>
+                  <span class="deal-store-status <%= store.last_error ? 'is-error' : '' %>">
+                    <% if (store.last_error) { %>
+                      ⚠️ Senaste hämtning misslyckades <%= timeAgo(store.last_attempt_at) %>: <%= store.last_error %>
+                      <% if (store.last_success_at) { %>· visar <%= store.deal_count %> erbjudanden från <%= timeAgo(store.last_success_at) %><% } %>
+                    <% } else if (store.last_success_at) { %>
+                      <%= store.deal_count %> erbjudanden · hämtat <%= timeAgo(store.last_success_at) %>
+                    <% } else { %>
+                      Inte hämtat ännu
+                    <% } %>
+                  </span>
+                </li>
+              <% }) %>
+            </ul>
+            <p class="muted">Hämtas automatiskt var 12:e timme (var 3:e timme på helger, då nästa veckas erbjudanden brukar dyka upp) direkt från kedjornas egna webbplatser.</p>
           </div>
-        <% } %>
+
+          <div class="deal-period" role="group" aria-label="Visa erbjudanden som gäller">
+            <button type="button" class="day-chip-button active" data-deal-period="today">Gäller idag</button>
+            <button type="button" class="day-chip-button" data-deal-period="next">Nästa vecka (<%= nextWeekLabel %>)</button>
+          </div>
+          <div
+            class="deal-period-config"
+            hidden
+            data-next-start="<%= nextWeekStart.getTime() %>"
+            data-next-end="<%= nextWeekEnd.getTime() %>"
+          ></div>
+          <p class="message deal-next-note" id="deal-next-note" hidden>
+            <% if (storesWithoutNextWeek.length) { %>
+              <strong><%= storesWithoutNextWeek.join(', ') %></strong> har inte publicerat nästa veckas erbjudanden ännu.
+              Här visas bara deras erbjudanden som fortsätter gälla nästa vecka. Vi hämtar oftare på helger, så de dyker upp här när butikerna publicerar dem.
+            <% } else { %>
+              Alla butiker har publicerat nästa veckas erbjudanden.
+            <% } %>
+          </p>
+
+          <div class="deal-view-row">
+            <div class="deal-view" role="group" aria-label="Vilka erbjudanden">
+              <button type="button" class="day-chip-button active" data-deal-view="everyday">🛒 Vardagsvaror</button>
+              <button type="button" class="day-chip-button" data-deal-view="all">Alla erbjudanden</button>
+              <button type="button" class="day-chip-button" data-deal-view="new" title="Varor som dykt upp den senaste veckan – kolla att de hamnat i rätt kategori">
+                🆕 Nya varor <span class="deal-new-count"></span>
+              </button>
+            </div>
+            <label class="deal-category-picker">
+              <span class="muted">Kategori</span>
+              <select id="deal-category">
+                <option value="">Alla vardagsvaror</option>
+                <% everydayCategories.forEach(function(category) { %>
+                  <option value="<%= category.id %>"><%= category.emoji %> <%= category.label %></option>
+                <% }) %>
+              </select>
+            </label>
+          </div>
+
+          <div class="panel-toolbar">
+            <input type="search" id="deal-search" data-preserve placeholder="Sök vara, märke eller kategori…" autocomplete="off" />
+            <div class="deal-filter" role="group" aria-label="Filtrera på butik">
+              <button type="button" class="day-chip-button active" data-deal-store="">Alla</button>
+              <% dealStores.filter((s) => s.enabled).forEach(function(store) { %>
+                <button type="button" class="day-chip-button" data-deal-store="<%= store.id %>"><%= store.name %></button>
+              <% }) %>
+            </div>
+          </div>
+
+          <% if (!deals.length) { %>
+            <div class="card empty-state">
+              <p>Inga erbjudanden ännu. Tryck på <strong>Uppdatera nu</strong> för att hämta veckans erbjudanden.</p>
+            </div>
+          <% } else { %>
+            <p class="deal-list-head">
+              <span class="muted"><span id="deal-count"><%= deals.length %></span> erbjudanden</span>
+              <span class="deal-today">📅 Idag: <strong><%= todayLabel %></strong></span>
+            </p>
+            <ul class="deal-rows">
+              <%
+                const categoryById = new Map(everydayCategories.map((c) => [c.id, c]));
+                let previousGroup = null;
+              %>
+              <% deals.forEach(function(deal) {
+                   const group = deal.everyday || '';
+                   const category = categoryById.get(group);
+                   if (group !== previousGroup) {
+                     previousGroup = group; %>
+                <li class="deal-group-head" data-group="<%= group %>">
+                  <h3><%= category ? `${category.emoji} ${category.label}` : 'Övrigt' %></h3>
+                  <span class="muted deal-group-count"></span>
+                </li>
+              <%   } %>
+                <li
+                  class="deal-row"
+                  data-category="<%= group %>"
+                  data-new="<%= deal.isNew ? '1' : '' %>"
+                  data-store="<%= deal.storeId %>"
+                  data-from="<%= deal.validFrom ? new Date(deal.validFrom).getTime() : '' %>"
+                  data-to="<%= deal.validTo ? new Date(deal.validTo).getTime() : '' %>"
+                  data-search="<%= [deal.name, deal.brand, deal.category, category && category.label, deal.storeName].filter(Boolean).join(' ').toLowerCase() %>"
+                >
+                  <div class="deal-main">
+                    <span class="deal-name">
+                      <%= deal.name %>
+                      <% if (deal.isNew) { %><span class="badge badge-new">Ny</span><% } %>
+                    </span>
+                    <span class="muted deal-meta"><%= [deal.brand, deal.size].filter(Boolean).join(' · ') %></span>
+                    <span class="muted deal-meta">
+                      <%= [deal.regularPrice && `Ord. ${deal.regularPrice}`, deal.comparePrice && `Jfr ${deal.comparePrice}`, deal.limitText].filter(Boolean).join(' · ') %>
+                    </span>
+                  </div>
+                  <div class="deal-side">
+                    <span class="deal-price"><%= deal.dealText %></span>
+                    <span class="deal-tags">
+                      <span class="badge"><%= deal.storeName %></span>
+                      <% if (deal.memberOnly) { %><span class="badge badge-special">Medlem</span><% } %>
+                      <button
+                        type="button"
+                        class="deal-category-edit"
+                        data-edit-category
+                        data-name="<%= deal.name %>"
+                        data-current="<%= deal.manualCategory ? (deal.everyday || 'none') : '' %>"
+                        title="<%= deal.manualCategory ? 'Kategorin är ändrad manuellt – klicka för att ändra' : 'Fel kategori? Klicka för att ändra' %>"
+                      ><%= deal.manualCategory ? '✋' : '✎' %></button>
+                    </span>
+                    <span class="muted deal-meta">
+                      <% if (deal.validFrom && new Date(deal.validFrom) > new Date()) { %>från <%= dealDate(deal.validFrom) %> <% } %><% if (endsToday(deal.validTo)) { %><span class="deal-ends-today">Slutar idag</span><% } else if (deal.validTo) { %>t.o.m. <%= dealDate(deal.validTo) %><% } %>
+                    </span>
+                  </div>
+                </li>
+              <% }) %>
+            </ul>
+            <p class="muted" id="deal-search-empty" hidden>
+              Inga erbjudanden matchar.
+              <span class="deal-empty-everyday">Vardagsvaror visar bara de valda kategorierna, så prova <button type="button" class="link-button" data-deal-view="all">Alla erbjudanden</button>.</span>
+            </p>
+          <% } %>
+        </div>
+      </section>
+
+      <!-- ============ Inställningar ============ -->
+      <section class="tab-panel" id="tab-installningar" role="tabpanel" hidden>
+        <div class="settings-grid">
+          <div class="card compact-card">
+            <h2>Planeringsregler</h2>
+            <p class="rules-summary" id="rules-summary"></p>
+            <form id="planning-rules-form" method="post" action="/backend/rules" class="settings-form" data-async data-refresh="#schedule-section">
+              <div class="number-row">
+                <label>Fisk per vecka
+                  <input type="number" min="0" max="7" name="fishMealsPerWeek" value="<%= rules.fishMealsPerWeek %>" />
+                </label>
+                <label>Vegetariskt per vecka
+                  <input type="number" min="0" max="7" name="vegetarianMealsPerWeek" value="<%= rules.vegetarianMealsPerWeek %>" />
+                </label>
+                <label>Veckor framåt
+                  <input type="number" min="1" max="12" name="planningHorizonWeeks" value="<%= rules.planningHorizonWeeks %>" />
+                </label>
+              </div>
+
+              <fieldset class="day-choice-group">
+                <legend>⭐ Specialdagar (får specialmåltider)</legend>
+                <div class="day-chips">
+                  <% ['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'].forEach(function(day) { %>
+                    <label class="day-chip"><input type="checkbox" name="specialDays" value="<%= day %>" <%= rules.specialDays.includes(day) ? 'checked' : '' %> /><span><%= day.slice(0, 3) %></span></label>
+                  <% }) %>
+                </div>
+                <label class="inline-check">
+                  <input type="checkbox" name="sameSpecialAcrossSpecialDays" <%= rules.sameSpecialAcrossSpecialDays ? 'checked' : '' %> />
+                  Samma specialmåltid alla specialdagar
+                </label>
+              </fieldset>
+
+              <fieldset class="day-choice-group">
+                <legend>🥕 Dagar som får vara vegetariska</legend>
+                <div class="day-chips">
+                  <% ['Måndag','Tisdag','Onsdag','Torsdag','Fredag','Lördag','Söndag'].forEach(function(day) { %>
+                    <label class="day-chip"><input type="checkbox" name="vegetarianAllowedDays" value="<%= day %>" <%= rules.vegetarianAllowedDays.includes(day) ? 'checked' : '' %> /><span><%= day.slice(0, 3) %></span></label>
+                  <% }) %>
+                </div>
+              </fieldset>
+
+              <label class="inline-check">
+                <input type="checkbox" name="prioritizeDeals" <%= rules.prioritizeDeals ? 'checked' : '' %> />
+                🏷 Välj rätter med erbjudanden på huvudråvaran först (fredag–söndag två veckor fram)
+              </label>
+
+              <fieldset class="day-choice-group">
+                <legend>🛒 Butiker jag storhandlar i</legend>
+                <p class="muted">Du handlar i en av dem åt gången. Schemat väljer den med erbjudanden för flest rätter, om du inte väljer själv under Schema.</p>
+                <div class="day-chips">
+                  <% dealStores.forEach(function(store) { %>
+                    <label class="day-chip"><input type="checkbox" name="shoppingStores" value="<%= store.id %>" <%= rules.shoppingStores.includes(store.id) ? 'checked' : '' %> /><span><%= store.name %></span></label>
+                  <% }) %>
+                </div>
+              </fieldset>
+
+              <p class="autosave-hint" id="rules-autosave-status">Ändringar sparas automatiskt och gäller nästa gång tomma dagar fylls.</p>
+            </form>
+          </div>
+
+          <div class="card compact-card">
+            <h2>Konto</h2>
+            <form method="post" action="/backend/settings/username" class="settings-form" data-async data-reset-on-success data-keep="username">
+              <h3>Användarnamn</h3>
+              <label for="username">Nytt användarnamn</label>
+              <input id="username" name="username" type="text" value="<%= currentUser ? (currentUser.username || currentUser.email) : '' %>" required maxlength="64" autocomplete="username" />
+              <label for="usernamePassword">Nuvarande lösenord</label>
+              <input id="usernamePassword" name="currentPassword" type="password" required autocomplete="current-password" />
+              <button type="submit" class="button">Spara användarnamn</button>
+            </form>
+
+            <form method="post" action="/backend/settings/password" class="settings-form" data-async data-reset-on-success>
+              <h3>Lösenord</h3>
+              <label for="passwordCurrent">Nuvarande lösenord</label>
+              <input id="passwordCurrent" name="currentPassword" type="password" required autocomplete="current-password" />
+              <label for="passwordNew">Nytt lösenord (minst 8 tecken)</label>
+              <input id="passwordNew" name="newPassword" type="password" minlength="8" maxlength="200" required autocomplete="new-password" />
+              <label for="passwordConfirm">Bekräfta nytt lösenord</label>
+              <input id="passwordConfirm" name="confirmPassword" type="password" minlength="8" required autocomplete="new-password" />
+              <button type="submit" class="button">Byt lösenord</button>
+            </form>
+          </div>
+        </div>
       </section>
     </main>
+
+    <!-- One shared picker for every day in the schedule. -->
+    <dialog id="day-picker" class="day-picker-dialog">
+      <div class="dialog-head">
+        <h3 id="day-picker-title">Välj måltid</h3>
+        <button type="button" class="button secondary" data-close-dialog>Stäng</button>
+      </div>
+      <input type="search" id="day-picker-search" maxlength="100" placeholder="Sök eller skriv en egen måltid…" autocomplete="off" />
+      <div class="picker-quick">
+        <button type="button" class="button secondary" data-day-action="leftovers">🍱 Rester/Matlåda</button>
+        <button type="button" class="button secondary" data-day-action="random">🎲 Slumpa</button>
+        <button type="button" class="button secondary" data-day-action="clear" title="Dagen fylls automatiskt nästa gång">Töm dagen</button>
+      </div>
+      <button type="button" class="button picker-custom" id="day-picker-custom" hidden></button>
+      <div id="day-picker-list" class="picker-list"></div>
+    </dialog>
+
+    <script type="application/json" id="everyday-categories-data"><%- JSON.stringify(everydayCategories).replace(/</g, '\\u003c') %></script>
+
+    <!-- In-page confirmation. The browser's own confirm() can be switched off
+         ("prevent this page from creating additional dialogs"), after which it
+         silently answers no and buttons like 🗑 stop working. -->
+    <dialog id="confirm-dialog" class="admin-meal-dialog confirm-dialog">
+      <p id="confirm-message"></p>
+      <div class="dialog-actions">
+        <button type="button" class="button secondary" data-confirm-answer="no">Avbryt</button>
+        <button type="button" class="button danger" data-confirm-answer="yes">Ja, fortsätt</button>
+      </div>
+    </dialog>
+
+    <!-- Why a scheduled meal is a deal meal: its main ingredient's deals. -->
+    <dialog id="meal-deals-dialog" class="admin-meal-dialog">
+      <div class="dialog-head">
+        <h3 id="meal-deals-title">Erbjudanden</h3>
+        <button type="button" class="button secondary" data-close-dialog>Stäng</button>
+      </div>
+      <div id="meal-deals-body"></div>
+    </dialog>
+
+    <!-- Moving a product to another category (by name, everywhere). -->
+    <dialog id="deal-category-dialog" class="day-picker-dialog">
+      <div class="dialog-head">
+        <h3 id="deal-category-title">Kategori</h3>
+        <button type="button" class="button secondary" data-close-dialog>Stäng</button>
+      </div>
+      <p class="muted">Gäller varan med det här namnet i alla butiker, även kommande veckor.</p>
+      <div class="tag-buttons deal-category-options">
+        <% everydayCategories.forEach(function(category) { %>
+          <button type="button" class="button secondary" data-set-category="<%= category.id %>"><%= category.emoji %> <%= category.label %></button>
+        <% }) %>
+      </div>
+      <div class="picker-quick">
+        <button type="button" class="button secondary" data-set-category="none">🚫 Inte vardagsvara</button>
+        <button type="button" class="button secondary" data-set-category="" id="deal-category-reset">↺ Sortera automatiskt</button>
+      </div>
+    </dialog>
+
+    <!-- One shared editor for adding and editing meals. -->
+    <dialog id="meal-dialog" class="admin-meal-dialog">
+      <form id="meal-form" method="post" action="/backend/meals" class="settings-form" data-async data-refresh="#meals-section,#schedule-section">
+        <div class="dialog-head">
+          <h3 id="meal-dialog-title">Ny måltid</h3>
+          <button type="button" class="button secondary" data-close-dialog>Stäng</button>
+        </div>
+
+        <label for="meal-name">Namn</label>
+        <input id="meal-name" type="text" name="name" required maxlength="100" placeholder="t.ex. Kycklinggryta" />
+
+        <fieldset class="day-choice-group">
+          <legend>Typ</legend>
+          <div class="inline-check-group">
+            <label class="inline-check"><input type="radio" name="type" value="regular" checked /> 🍽 Vanlig</label>
+            <label class="inline-check"><input type="radio" name="type" value="vegetarian" /> 🥕 Vegetarisk</label>
+            <label class="inline-check"><input type="radio" name="type" value="fish" /> 🐟 Fisk</label>
+          </div>
+          <label class="inline-check">
+            <input type="checkbox" name="special" />
+            ⭐ Specialmåltid – används bara på specialdagar
+          </label>
+        </fieldset>
+
+        <label for="meal-ingredients">Ingredienser (en per rad)</label>
+        <textarea id="meal-ingredients" name="ingredients" rows="7" placeholder="Kyckling&#10;Gul lök&#10;Kokosmjölk"></textarea>
+
+        <div id="meal-ingredient-categories" class="ingredient-categories" hidden>
+          <p class="muted">Kategori per ingrediens (huvudråvaran styr prioritering vid erbjudanden). Fel? Rätta med ✎ – gäller ingrediensen i alla rätter.</p>
+          <ul></ul>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="button danger" id="meal-delete-button" hidden>Ta bort</button>
+          <button type="submit" class="button">Spara</button>
+        </div>
+      </form>
+    </dialog>
+
     <script>
       (function () {
+        // ---------- Theme ----------
         const themeToggle = document.getElementById('themeToggle');
-
-        function getTheme() {
-          return document.documentElement.getAttribute('data-theme') || 'light';
-        }
-
+        const getTheme = () => document.documentElement.getAttribute('data-theme') || 'light';
         function applyTheme(theme) {
           document.documentElement.setAttribute('data-theme', theme);
-          const isDark = theme === 'dark';
-          if (themeToggle) {
-            themeToggle.textContent = isDark ? '☀️ Ljust läge' : '🌙 Mörkt läge';
-          }
+          themeToggle.textContent = theme === 'dark' ? '☀️ Ljust läge' : '🌙 Mörkt läge';
         }
-
         applyTheme(getTheme());
-
-        if (themeToggle) {
-          themeToggle.addEventListener('click', () => {
-            const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
-            localStorage.setItem('matschema-theme', nextTheme);
-            applyTheme(nextTheme);
-          });
-        }
-
-        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-        mediaQuery.addEventListener('change', (event) => {
-          if (localStorage.getItem('matschema-theme')) {
-            return;
-          }
-          applyTheme(event.matches ? 'dark' : 'light');
+        themeToggle.addEventListener('click', () => {
+          const nextTheme = getTheme() === 'dark' ? 'light' : 'dark';
+          localStorage.setItem('matschema-theme', nextTheme);
+          applyTheme(nextTheme);
         });
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+          if (!localStorage.getItem('matschema-theme')) applyTheme(event.matches ? 'dark' : 'light');
+        });
+
+        // ---------- Toasts ----------
         const toastContainer = document.getElementById('toast-container');
         function showToast(message, isError) {
-          if (!toastContainer) return;
           const toast = document.createElement('div');
           toast.className = 'toast' + (isError ? ' error' : '');
           toast.textContent = message;
@@ -453,281 +594,563 @@
           setTimeout(() => {
             toast.classList.remove('show');
             setTimeout(() => toast.remove(), 250);
-          }, 2200);
+          }, isError ? 4000 : 2200);
         }
 
-        const STORAGE_KEY = 'backend_anchor_restore';
-        const FALLBACK_KEY = 'backend_anchor_restore_fallback';
-        const MAIN = document.querySelector('main.page');
-        const isMealAction = (form) => /\/backend\/meals(\/|$)/.test(form.action || '');
-
-        async function replaceSection(selector) {
-          const response = await fetch('/backend', { headers: { 'X-Requested-With': 'fetch' } });
-          const html = await response.text();
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(html, 'text/html');
-          const fresh = doc.querySelector(selector);
-          const current = document.querySelector(selector);
-          if (fresh && current) {
-            current.replaceWith(fresh);
-          }
-        }
-
-        function saveAnchorFromForm(form) {
-          if (isMealAction(form)) {
-            return;
-          }
-          const anchor =
-            form.closest('[data-preserve-anchor]') ||
-            document.getElementById('card-generated-schedules') ||
-            MAIN;
-          if (anchor && anchor.id) {
-            sessionStorage.setItem(STORAGE_KEY, anchor.id);
-            sessionStorage.setItem(FALLBACK_KEY, 'card-generated-schedules');
-          }
-        }
-
-        // For normal meal-database submits (non-async), avoid stale anchor restore after reload.
-        document.addEventListener(
-          'submit',
-          (event) => {
-            const form = event.target;
-            if (!form || form.tagName !== 'FORM') return;
-            if (form.matches('form[data-async]')) return;
-            if (!isMealAction(form)) return;
-            sessionStorage.removeItem(STORAGE_KEY);
-            sessionStorage.removeItem(FALLBACK_KEY);
-          },
-          true
-        );
-
-        function restoreAnchor() {
-          const anchorId = sessionStorage.getItem(STORAGE_KEY);
-          const fallbackId = sessionStorage.getItem(FALLBACK_KEY);
-          if (!anchorId) return;
-
-          const target = document.getElementById(anchorId) || (fallbackId ? document.getElementById(fallbackId) : null);
-          if (target) {
-            target.scrollIntoView({ block: 'start', behavior: 'auto' });
-          }
-          sessionStorage.removeItem(STORAGE_KEY);
-          sessionStorage.removeItem(FALLBACK_KEY);
-        }
-
-        async function submitAsyncForm(form, submitter) {
-          const shouldRestoreAnchor = !form.matches('[data-autosave]') && !isMealAction(form);
-          if (shouldRestoreAnchor) {
-            saveAnchorFromForm(form);
-          }
-          const fd = new FormData(form);
-          const ignoreSubmitter = form.dataset.ignoreSubmitter === '1';
-          if (!ignoreSubmitter && submitter && submitter.name) {
-            fd.append(submitter.name, submitter.value || '');
-          }
-          delete form.dataset.ignoreSubmitter;
-          const body = new URLSearchParams(fd);
-
-          const response = await fetch(form.action, {
-            method: 'POST',
-            body,
-            headers: { 'X-Requested-With': 'fetch' }
+        // ---------- Tabs ----------
+        const TABS = ['schema', 'maltider', 'erbjudanden', 'installningar'];
+        function showTab(name) {
+          const tab = TABS.includes(name) ? name : 'schema';
+          document.querySelectorAll('.admin-tab').forEach((button) => {
+            const active = button.dataset.tab === tab;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
           });
+          TABS.forEach((t) => {
+            document.getElementById('tab-' + t).hidden = t !== tab;
+          });
+          history.replaceState(null, '', '#' + tab);
+        }
+        document.querySelectorAll('.admin-tab').forEach((button) => {
+          button.addEventListener('click', () => showTab(button.dataset.tab));
+        });
+        showTab(location.hash.slice(1));
+        window.addEventListener('hashchange', () => showTab(location.hash.slice(1)));
 
-          if (!response.ok) {
-            // Keep the app responsive; if server returns validation page, refresh only schedule section if possible.
-            const refreshTarget = form.dataset.refreshTarget || '#card-generated-schedules';
-            await replaceSection(refreshTarget);
-            if (shouldRestoreAnchor) {
-              restoreAnchor();
-            }
-            form.dispatchEvent(new CustomEvent('async:done', { bubbles: true, detail: { ok: false } }));
-            return;
-          }
-
-          const refreshTarget = form.dataset.refreshTarget;
-          if (refreshTarget) {
-            await replaceSection(refreshTarget);
-          }
-
-          if (shouldRestoreAnchor) {
-            restoreAnchor();
-          }
-          form.dispatchEvent(new CustomEvent('async:done', { bubbles: true, detail: { ok: true } }));
+        // ---------- Server calls ----------
+        // Re-renders the given sections (comma-separated selectors) from a
+        // fresh copy of the page, so the UI always matches what was saved.
+        async function refresh(selectors) {
+          if (!selectors) return;
+          const response = await fetch('/backend', { headers: { 'X-Requested-With': 'fetch' } });
+          const doc = new DOMParser().parseFromString(await response.text(), 'text/html');
+          // Inputs marked data-preserve (e.g. a search box) keep what the user typed.
+          const preserved = [...document.querySelectorAll('input[data-preserve]')].map((input) => [input.id, input.value]);
+          selectors.split(',').forEach((selector) => {
+            const fresh = doc.querySelector(selector.trim());
+            const current = document.querySelector(selector.trim());
+            if (fresh && current) current.replaceWith(fresh);
+          });
+          preserved.forEach(([id, value]) => {
+            const input = document.getElementById(id);
+            if (input) input.value = value;
+          });
+          applyMealSearch();
+          applyDealFilter();
         }
 
-        // Capture all async-form submits globally so behavior survives dynamic DOM replacement.
-        document.addEventListener(
-          'submit',
-          async (event) => {
-            const form = event.target;
-            if (!form || form.tagName !== 'FORM') return;
-            if (!form.matches('form[data-async]')) return;
-
-            event.preventDefault();
-            try {
-              await submitAsyncForm(form, event.submitter);
-            } catch (_err) {
-              // Fallback: never block user actions if async handling fails.
-              form.removeAttribute('data-async');
-              form.submit();
+        // POSTs form data and shows the server's message or error as a toast.
+        async function post(url, data, refreshSelectors) {
+          let result = null;
+          try {
+            const response = await fetch(url, {
+              method: 'POST',
+              body: new URLSearchParams(data),
+              headers: { 'X-Requested-With': 'fetch' }
+            });
+            if ((response.headers.get('content-type') || '').includes('application/json')) {
+              result = await response.json();
             }
-          },
-          true
-        );
+            if (!response.ok || !result) {
+              if (response.redirected && response.url.includes('/auth/login')) {
+                showToast('Du har loggats ut. Logga in igen.', true);
+                setTimeout(() => location.assign('/auth/login'), 1500);
+                return false;
+              }
+              throw new Error((result && result.error) || 'Något gick fel. Försök igen.');
+            }
+          } catch (err) {
+            showToast(err.message || 'Kunde inte nå servern. Försök igen.', true);
+            await refresh(refreshSelectors).catch(() => {});
+            return false;
+          }
+          if (result.message) showToast(result.message);
+          await refresh(refreshSelectors);
+          return true;
+        }
+
+        // Asks in an in-page dialog; resolves true for "Ja", false otherwise
+        // (Avbryt, Esc or clicking outside).
+        const confirmDialog = document.getElementById('confirm-dialog');
+        function askConfirm(message) {
+          document.getElementById('confirm-message').textContent = message;
+          confirmDialog.returnValue = '';
+          confirmDialog.showModal();
+          confirmDialog.querySelector('[data-confirm-answer="no"]').focus();
+          return new Promise((resolve) => {
+            confirmDialog.addEventListener('close', () => resolve(confirmDialog.returnValue === 'yes'), { once: true });
+          });
+        }
+        confirmDialog.addEventListener('click', (event) => {
+          const answer = event.target.closest('[data-confirm-answer]');
+          if (answer) confirmDialog.close(answer.dataset.confirmAnswer);
+          else if (event.target === confirmDialog) confirmDialog.close('no');
+        });
+
+        // Forms marked data-async submit through post(). Options:
+        //   data-refresh="#a,#b"   sections to re-render afterwards
+        //   data-confirm="…"       ask before submitting
+        //   data-reset-on-success  clear the form (except data-keep fields)
+        document.addEventListener('submit', async (event) => {
+          const form = event.target;
+          if (!form.matches('form[data-async]')) return;
+          event.preventDefault();
+          if (form.dataset.confirm && !(await askConfirm(form.dataset.confirm))) return;
+
+          const button = form.querySelector('button[type="submit"]');
+          const label = button && button.textContent;
+          if (button) {
+            button.disabled = true;
+            if (form.dataset.busyText) button.textContent = form.dataset.busyText;
+          }
+          const ok = await post(form.action, new FormData(form), form.dataset.refresh);
+          if (button && button.isConnected) {
+            button.disabled = false;
+            button.textContent = label;
+          }
+
+          if (ok && form.hasAttribute('data-reset-on-success')) {
+            const keep = (form.dataset.keep || '').split(',');
+            form.querySelectorAll('input').forEach((input) => {
+              if (!keep.includes(input.name)) input.value = '';
+            });
+            if (keep.includes('username')) {
+              document.getElementById('current-username').textContent = form.elements.username.value.trim().toLowerCase();
+            }
+          }
+          form.dispatchEvent(new CustomEvent('async:done', { detail: { ok } }));
+        });
 
         document.addEventListener('click', (event) => {
-          const openBtn = event.target.closest('.open-day-picker');
-          if (openBtn) {
-            const dialog = document.getElementById(openBtn.dataset.dialogId);
-            if (dialog) dialog.showModal();
-            return;
-          }
-
-          const closeBtn = event.target.closest('.close-day-picker');
-          if (closeBtn) {
-            const dialog = closeBtn.closest('dialog');
-            if (dialog) dialog.close();
-            return;
-          }
-
-          const leftoversBtn = event.target.closest('.set-leftovers-btn');
-          if (leftoversBtn) {
-            const dayBox = leftoversBtn.closest('.day-box');
-            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
-            if (!dayBox || !form) return;
-
-            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
-            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
-            const label = dayBox.querySelector('.selected-meal');
-            mealIdInput.value = '';
-            customInput.value = 'Rester/Matlåda';
-            if (label) label.textContent = 'Rester/Matlåda';
-            form.dataset.ignoreSubmitter = '1';
-            form.requestSubmit();
-            return;
-          }
-
-          const pickBtn = event.target.closest('.pick-meal-btn');
-          if (pickBtn) {
-            const dialog = pickBtn.closest('dialog');
-            const dayBox = dialog ? dialog.closest('.day-box') : null;
-            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
-            if (!dayBox || !form) return;
-
-            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
-            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
-            const label = dayBox.querySelector('.selected-meal');
-            mealIdInput.value = pickBtn.dataset.mealId || '';
-            customInput.value = '';
-            if (label) label.textContent = pickBtn.dataset.mealName || '';
-            if (dialog) dialog.close();
-            form.dataset.ignoreSubmitter = '1';
-            form.requestSubmit();
-            return;
-          }
-
-          const customSaveBtn = event.target.closest('.save-custom-btn');
-          if (customSaveBtn) {
-            const dialog = customSaveBtn.closest('dialog');
-            const dayBox = dialog ? dialog.closest('.day-box') : null;
-            const form = dayBox ? dayBox.closest('form[data-autosave]') : null;
-            if (!dayBox || !form) return;
-
-            const customField = dialog.querySelector('.custom-meal-input');
-            const value = customField ? customField.value.trim() : '';
-            if (!value) return;
-
-            const mealIdInput = dayBox.querySelector('input[name="mealIds[]"]');
-            const customInput = dayBox.querySelector('input[name="customMeals[]"]');
-            const label = dayBox.querySelector('.selected-meal');
-            mealIdInput.value = '';
-            customInput.value = value;
-            if (label) label.textContent = value;
-            if (dialog) dialog.close();
-            form.dataset.ignoreSubmitter = '1';
-            form.requestSubmit();
-            return;
-          }
+          const closer = event.target.closest('[data-close-dialog]');
+          if (closer) closer.closest('dialog').close();
         });
 
-        // Allow Enter in "Egen måltid" field to save directly.
-        document.addEventListener('keydown', (event) => {
-          const input = event.target;
-          if (!input || input.tagName !== 'INPUT') return;
-          if (!input.classList.contains('custom-meal-input')) return;
-          if (event.key !== 'Enter') return;
+        const readMeals = () => JSON.parse(document.getElementById('meals-data').textContent || '[]');
 
-          event.preventDefault();
-          const dialog = input.closest('dialog');
-          const saveBtn = dialog ? dialog.querySelector('.save-custom-btn') : null;
-          if (saveBtn) saveBtn.click();
-        });
+        // ---------- Schedule: day picker ----------
+        const picker = document.getElementById('day-picker');
+        const pickerTitle = document.getElementById('day-picker-title');
+        const pickerSearch = document.getElementById('day-picker-search');
+        const pickerList = document.getElementById('day-picker-list');
+        const pickerCustom = document.getElementById('day-picker-custom');
+        let pickerTarget = null;
 
-        // Tag checkboxes behave like a compact exclusive choice.
-        document.addEventListener('change', (event) => {
-          const input = event.target;
-          if (!input || input.tagName !== 'INPUT') return;
-          if (input.name !== 'isVegetarian' && input.name !== 'isFish') return;
-          if (!input.checked) return;
+        const GROUPS = [
+          { key: 'special', label: '⭐ Special', match: (m) => m.special },
+          { key: 'regular', label: '🍽 Vanliga', match: (m) => !m.special && m.type === 'regular' },
+          { key: 'vegetarian', label: '🥕 Vegetariska', match: (m) => !m.special && m.type === 'vegetarian' },
+          { key: 'fish', label: '🐟 Fisk', match: (m) => !m.special && m.type === 'fish' }
+        ];
 
-          const form = input.closest('form');
-          if (!form) return;
-          const otherName = input.name === 'isVegetarian' ? 'isFish' : 'isVegetarian';
-          const other = form.querySelector(`input[name="${otherName}"]`);
-          if (other) other.checked = false;
-        });
+        function renderPicker() {
+          const query = pickerSearch.value.trim().toLowerCase();
+          const meals = readMeals().filter((m) => !query || m.name.toLowerCase().includes(query));
+          // Special days list special meals first; other days list them last.
+          const groups = pickerTarget.specialDay ? GROUPS : [...GROUPS.slice(1), GROUPS[0]];
 
-        const addMealForm = document.getElementById('add-meal-form');
-        if (addMealForm) {
-          addMealForm.addEventListener('async:done', (event) => {
-            if (event.detail && event.detail.ok) {
-              addMealForm.reset();
-              showToast('Måltid tillagd.');
-            } else {
-              showToast('Kunde inte lägga till måltiden. Kontrollera fälten.', true);
-            }
+          pickerList.replaceChildren();
+          groups.forEach((group) => {
+            const groupMeals = meals.filter(group.match);
+            if (!groupMeals.length) return;
+            const wrap = document.createElement('div');
+            wrap.className = 'tag-group';
+            const heading = document.createElement('h5');
+            heading.textContent = group.label;
+            const buttons = document.createElement('div');
+            buttons.className = 'tag-buttons';
+            groupMeals.forEach((meal) => {
+              const button = document.createElement('button');
+              button.type = 'button';
+              button.className = 'button secondary pick-meal' + (meal.id === pickerTarget.mealId ? ' selected' : '');
+              button.dataset.mealId = meal.id;
+              button.textContent = meal.name;
+              buttons.appendChild(button);
+            });
+            wrap.append(heading, buttons);
+            pickerList.appendChild(wrap);
           });
+          if (!pickerList.children.length) {
+            const empty = document.createElement('p');
+            empty.className = 'muted';
+            empty.textContent = 'Ingen måltid matchar.';
+            pickerList.appendChild(empty);
+          }
+
+          const typed = pickerSearch.value.trim();
+          pickerCustom.hidden = !typed;
+          pickerCustom.textContent = `Använd ”${typed}” som egen måltid`;
         }
 
+        function changeDay(target, data) {
+          picker.close();
+          return post(`/backend/schedule/${target.scheduleId}/day/${target.index}`, data, '#schedule-section');
+        }
+
+        document.addEventListener('click', (event) => {
+          const dayButton = event.target.closest('.day-meal');
+          if (dayButton) {
+            pickerTarget = {
+              scheduleId: dayButton.dataset.scheduleId,
+              index: dayButton.dataset.index,
+              mealId: dayButton.dataset.mealId,
+              specialDay: Boolean(dayButton.dataset.specialDay)
+            };
+            pickerTitle.textContent = `${dayButton.dataset.day} – välj måltid`;
+            pickerSearch.value = '';
+            renderPicker();
+            picker.showModal();
+            pickerSearch.focus();
+            return;
+          }
+
+          const dayAction = event.target.closest('.day-action');
+          if (dayAction) {
+            changeDay(
+              { scheduleId: dayAction.dataset.scheduleId, index: dayAction.dataset.index },
+              { action: dayAction.dataset.action }
+            );
+            return;
+          }
+
+          if (!pickerTarget || !picker.open) return;
+          const pick = event.target.closest('.pick-meal');
+          if (pick) {
+            changeDay(pickerTarget, { action: 'pick', mealId: pick.dataset.mealId });
+            return;
+          }
+          const quick = event.target.closest('[data-day-action]');
+          if (quick) {
+            changeDay(pickerTarget, { action: quick.dataset.dayAction });
+            return;
+          }
+          if (event.target === pickerCustom) {
+            changeDay(pickerTarget, { action: 'custom', name: pickerSearch.value.trim() });
+          }
+        });
+
+        pickerSearch.addEventListener('input', renderPicker);
+        // Enter picks the only match, or saves the text as a custom meal.
+        pickerSearch.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          const matches = pickerList.querySelectorAll('.pick-meal');
+          if (matches.length === 1) {
+            matches[0].click();
+          } else if (!matches.length && pickerSearch.value.trim()) {
+            pickerCustom.click();
+          }
+        });
+
+        // ---------- Meals: list, search, editor ----------
+        const mealSearch = document.getElementById('meal-search');
+        function applyMealSearch() {
+          const query = mealSearch.value.trim().toLowerCase();
+          let visible = 0;
+          document.querySelectorAll('.meal-row').forEach((row) => {
+            const show = !query || row.dataset.search.includes(query);
+            row.parentElement.hidden = !show;
+            if (show) visible += 1;
+          });
+          const empty = document.getElementById('meal-search-empty');
+          if (empty) empty.hidden = visible > 0;
+        }
+        mealSearch.addEventListener('input', applyMealSearch);
+
+        const mealDialog = document.getElementById('meal-dialog');
+        const mealForm = document.getElementById('meal-form');
+        const mealDelete = document.getElementById('meal-delete-button');
+        let editingMeal = null;
+
+        // Lists the saved ingredients with their category, each with ✎ to
+        // correct it (same corrections as for deals, see the category dialog).
+        function renderIngredientCategories(meal) {
+          const box = document.getElementById('meal-ingredient-categories');
+          const list = box.querySelector('ul');
+          list.replaceChildren();
+          const items = (meal && meal.ingredientCategories) || [];
+          box.hidden = !items.length;
+          for (const ingredient of items) {
+            const category = ingredient.category && categoryById.get(ingredient.category);
+            const isMain = meal.mainCategories.includes(ingredient.category);
+            const item = document.createElement('li');
+            const name = document.createElement('span');
+            name.textContent = ingredient.name;
+            const label = document.createElement('span');
+            label.className = isMain ? 'badge badge-main' : 'muted';
+            label.textContent = category ? `${category.emoji} ${category.label}${isMain ? ' · huvudråvara' : ''}` : '–';
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'deal-category-edit';
+            edit.dataset.editCategory = '';
+            edit.dataset.name = ingredient.name;
+            edit.dataset.current = ingredient.manual ? ingredient.category || 'none' : '';
+            edit.dataset.refresh = '#meals-section,#schedule-section,#deals-section';
+            edit.title = 'Ändra kategori för den här ingrediensen';
+            edit.textContent = ingredient.manual ? '✋' : '✎';
+            item.append(name, label, edit);
+            list.appendChild(item);
+          }
+        }
+
+        function openMealEditor(meal) {
+          editingMeal = meal;
+          renderIngredientCategories(meal);
+          mealForm.reset();
+          document.getElementById('meal-dialog-title').textContent = meal ? meal.name : 'Ny måltid';
+          mealForm.action = meal ? `/backend/meals/${meal.id}` : '/backend/meals';
+          mealDelete.hidden = !meal;
+          if (meal) {
+            mealForm.elements.name.value = meal.name;
+            mealForm.elements.type.value = meal.type;
+            mealForm.elements.special.checked = meal.special;
+            mealForm.elements.ingredients.value = meal.ingredients.join('\n');
+          }
+          mealDialog.showModal();
+          mealForm.elements.name.focus();
+        }
+
+        document.getElementById('new-meal-button').addEventListener('click', () => openMealEditor(null));
+        document.addEventListener('click', (event) => {
+          const row = event.target.closest('.meal-row');
+          if (!row) return;
+          const meal = readMeals().find((m) => m.id === row.dataset.mealId);
+          if (meal) openMealEditor(meal);
+        });
+
+        mealForm.addEventListener('async:done', (event) => {
+          if (event.detail.ok) mealDialog.close();
+        });
+
+        mealDelete.addEventListener('click', async () => {
+          if (!editingMeal) return;
+          if (!(await askConfirm(`Ta bort ${editingMeal.name}? Den finns kvar som egen måltid på dagar där den redan är planerad.`))) return;
+          const ok = await post(`/backend/meals/${editingMeal.id}/delete`, {}, '#meals-section,#schedule-section');
+          if (ok) mealDialog.close();
+        });
+
+        // ---------- Deals: store switches, search, store filter ----------
+        // Forms marked data-autosubmit save as soon as a field changes.
+        document.addEventListener('change', (event) => {
+          const form = event.target.closest('form[data-autosubmit]');
+          if (form) form.requestSubmit();
+        });
+
+        let dealStoreFilter = '';
+        let dealPeriod = 'today';
+        // 'everyday' shows only deals in an everyday category (optionally one
+        // of them); 'all' shows everything, with the rest under "Övrigt";
+        // 'new' shows products first seen in the last week, to check that
+        // they landed in the right category.
+        let dealView = 'everyday';
+        let dealCategory = '';
+        // Whether a deal's [from, to] period (ms; missing = open-ended) overlaps [start, end).
+        const overlaps = (row, start, end) => {
+          const from = row.dataset.from ? Number(row.dataset.from) : -Infinity;
+          const to = row.dataset.to ? Number(row.dataset.to) : Infinity;
+          return from < end && to >= start;
+        };
+        function applyDealFilter() {
+          const config = document.querySelector('.deal-period-config');
+          const now = Date.now();
+          const [periodStart, periodEnd] = dealPeriod === 'next' && config
+            ? [Number(config.dataset.nextStart), Number(config.dataset.nextEnd)]
+            : [now, now + 1];
+          if (dealStoreFilter && !document.querySelector(`[data-deal-store="${CSS.escape(dealStoreFilter)}"]`)) {
+            dealStoreFilter = '';
+          }
+          const search = document.getElementById('deal-search');
+          const query = search ? search.value.trim().toLowerCase() : '';
+          let visible = 0;
+          const visibleByGroup = new Map();
+          let newCount = 0;
+          document.querySelectorAll('.deal-row').forEach((row) => {
+            const category = row.dataset.category;
+            const isNew = row.dataset.new === '1';
+            const matchesFilters =
+              overlaps(row, periodStart, periodEnd) &&
+              (!dealStoreFilter || row.dataset.store === dealStoreFilter) &&
+              (!query || row.dataset.search.includes(query));
+            if (matchesFilters && isNew) newCount += 1;
+            const inView =
+              dealView === 'all' ||
+              (dealView === 'new' && isNew) ||
+              (dealView === 'everyday' && category !== '' && (!dealCategory || category === dealCategory));
+            const show = matchesFilters && inView;
+            row.hidden = !show;
+            if (show) {
+              visible += 1;
+              visibleByGroup.set(category, (visibleByGroup.get(category) || 0) + 1);
+            }
+          });
+          document.querySelectorAll('.deal-group-head').forEach((head) => {
+            const groupCount = visibleByGroup.get(head.dataset.group) || 0;
+            head.hidden = groupCount === 0;
+            head.querySelector('.deal-group-count').textContent = groupCount;
+          });
+          document.querySelectorAll('.deal-view [data-deal-view]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.dealView === dealView);
+          });
+          const newCountLabel = document.querySelector('.deal-new-count');
+          if (newCountLabel) newCountLabel.textContent = `(${newCount})`;
+          const categorySelect = document.getElementById('deal-category');
+          if (categorySelect) {
+            categorySelect.value = dealCategory;
+            categorySelect.closest('.deal-category-picker').hidden = dealView !== 'everyday';
+          }
+          document.querySelectorAll('[data-deal-store]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.dealStore === dealStoreFilter);
+          });
+          document.querySelectorAll('[data-deal-period]').forEach((button) => {
+            button.classList.toggle('active', button.dataset.dealPeriod === dealPeriod);
+          });
+          const note = document.getElementById('deal-next-note');
+          if (note) note.hidden = dealPeriod !== 'next';
+          const count = document.getElementById('deal-count');
+          if (count) count.textContent = visible;
+          const empty = document.getElementById('deal-search-empty');
+          if (empty) {
+            empty.hidden = visible > 0;
+            empty.querySelector('.deal-empty-everyday').hidden = dealView !== 'everyday';
+          }
+        }
+        // The deals section is re-rendered after refreshes, so listen on the document.
+        document.addEventListener('input', (event) => {
+          if (event.target.id === 'deal-search') applyDealFilter();
+        });
+        document.addEventListener('change', (event) => {
+          if (event.target.id !== 'deal-category') return;
+          dealCategory = event.target.value;
+          applyDealFilter();
+        });
+        document.addEventListener('click', (event) => {
+          const storeButton = event.target.closest('[data-deal-store]');
+          const periodButton = event.target.closest('[data-deal-period]');
+          const viewButton = event.target.closest('[data-deal-view]');
+          if (storeButton) dealStoreFilter = storeButton.dataset.dealStore;
+          else if (periodButton) dealPeriod = periodButton.dataset.dealPeriod;
+          else if (viewButton) dealView = viewButton.dataset.dealView;
+          else return;
+          applyDealFilter();
+        });
+        applyDealFilter();
+
+        // ---------- Deals: move a product to another category ----------
+        // Used both for deals (Erbjudanden) and for ingredients (meal editor);
+        // the opener says which sections to re-render via data-refresh.
+        const dealCategoryDialog = document.getElementById('deal-category-dialog');
+        let dealCategoryName = null;
+        let dealCategoryRefresh = '#deals-section';
+        document.addEventListener('click', async (event) => {
+          const edit = event.target.closest('[data-edit-category]');
+          if (edit) {
+            dealCategoryName = edit.dataset.name;
+            dealCategoryRefresh = edit.dataset.refresh || '#deals-section';
+            const current = edit.dataset.current;
+            document.getElementById('deal-category-title').textContent = dealCategoryName;
+            dealCategoryDialog.querySelectorAll('[data-set-category]').forEach((button) => {
+              button.classList.toggle('selected', current !== '' && button.dataset.setCategory === current);
+            });
+            document.getElementById('deal-category-reset').hidden = current === '';
+            dealCategoryDialog.showModal();
+            return;
+          }
+          const choice = event.target.closest('[data-set-category]');
+          if (!choice || !dealCategoryName) return;
+          dealCategoryDialog.close();
+          await post('/backend/deals/category', { name: dealCategoryName, category: choice.dataset.setCategory }, dealCategoryRefresh);
+          if (mealDialog.open && editingMeal) {
+            const updated = readMeals().find((m) => m.id === editingMeal.id);
+            if (updated) renderIngredientCategories(updated);
+          }
+        });
+
+        // ---------- Schedule: which store to shop at ----------
+        document.addEventListener('change', (event) => {
+          if (event.target.id !== 'shopping-store') return;
+          post('/backend/schedule/store', { store: event.target.value }, '#schedule-section');
+        });
+
+        // ---------- Schedule: why a day is a deal meal ----------
+        const everydayCategories = JSON.parse(document.getElementById('everyday-categories-data').textContent);
+        const categoryById = new Map(everydayCategories.map((c) => [c.id, c]));
+        const mealDealsDialog = document.getElementById('meal-deals-dialog');
+        const formatDay = (iso) => {
+          const d = new Date(iso);
+          return `${d.getDate()}/${d.getMonth() + 1}`;
+        };
+        document.addEventListener('click', (event) => {
+          const button = event.target.closest('.meal-deals-button');
+          if (!button) return;
+          const planning = JSON.parse(document.getElementById('deal-planning-data').textContent);
+          const body = document.getElementById('meal-deals-body');
+          document.getElementById('meal-deals-title').textContent = button.dataset.mealName;
+          body.replaceChildren();
+          const deals = planning.dealsByMealId[button.dataset.mealId] || [];
+          if (deals.length) {
+            const heading = document.createElement('h4');
+            heading.textContent = `Huvudråvaran på erbjudande hos ${planning.storeName}`;
+            const list = document.createElement('ul');
+            list.className = 'meal-deals-list';
+            for (const deal of deals) {
+              const item = document.createElement('li');
+              const name = document.createElement('span');
+              name.textContent = deal.name;
+              const price = document.createElement('strong');
+              price.textContent = deal.dealText;
+              const meta = document.createElement('span');
+              meta.className = 'muted';
+              meta.textContent = [deal.storeName, deal.memberOnly ? 'medlem' : '', deal.validTo ? `t.o.m. ${formatDay(deal.validTo)}` : '']
+                .filter(Boolean)
+                .join(' · ');
+              item.append(name, price, meta);
+              list.appendChild(item);
+            }
+            body.append(heading, list);
+          }
+          mealDealsDialog.showModal();
+        });
+
+        // ---------- Rules: autosave + plain-language summary ----------
         const rulesForm = document.getElementById('planning-rules-form');
         const rulesStatus = document.getElementById('rules-autosave-status');
-        if (rulesForm) {
-          let autosaveTimer = null;
-          let lastSavedTimer = null;
+        const rulesSummary = document.getElementById('rules-summary');
+        const SHORT = { Måndag: 'mån', Tisdag: 'tis', Onsdag: 'ons', Torsdag: 'tor', Fredag: 'fre', Lördag: 'lör', Söndag: 'sön' };
+        const dayList = (days, last = 'och') => days.map((d) => SHORT[d]).join(', ').replace(/, ([^,]*)$/, ` ${last} $1`);
 
-          const queueRulesAutosave = () => {
-            if (rulesStatus) {
-              rulesStatus.textContent = 'Sparar...';
-            }
-            if (autosaveTimer) {
-              clearTimeout(autosaveTimer);
-            }
-            autosaveTimer = setTimeout(() => {
-              rulesForm.dataset.ignoreSubmitter = '1';
-              rulesForm.requestSubmit();
-            }, 350);
-          };
-
-          rulesForm.addEventListener('input', queueRulesAutosave);
-          rulesForm.addEventListener('change', queueRulesAutosave);
-
-          rulesForm.addEventListener('async:done', (event) => {
-            if (!rulesStatus) return;
-            if (!event.detail || !event.detail.ok) {
-              rulesStatus.textContent = 'Kunde inte autospara. Försök igen.';
-              return;
-            }
-            rulesStatus.textContent = 'Sparat.';
-            if (lastSavedTimer) {
-              clearTimeout(lastSavedTimer);
-            }
-            lastSavedTimer = setTimeout(() => {
-              rulesStatus.textContent = 'Ändringar sparas automatiskt.';
-            }, 1500);
-          });
+        function updateRulesSummary() {
+          const fd = new FormData(rulesForm);
+          const special = fd.getAll('specialDays');
+          const veg = fd.getAll('vegetarianAllowedDays');
+          const fish = Number(fd.get('fishMealsPerWeek')) || 0;
+          const vegCount = Number(fd.get('vegetarianMealsPerWeek')) || 0;
+          const parts = [];
+          if (special.length) {
+            parts.push(special.length > 1 && fd.get('sameSpecialAcrossSpecialDays')
+              ? `${dayList(special)}: samma specialrätt.`
+              : `${dayList(special)}: specialrätt.`);
+          }
+          parts.push(fish ? `${fish} fiskrätt${fish > 1 ? 'er' : ''} i veckan (den första mån–tor).` : 'Ingen fisk.');
+          parts.push(vegCount && veg.length
+            ? `${vegCount} vegetarisk${vegCount > 1 ? 'a' : ''} på ${dayList(veg, 'eller')}.`
+            : 'Inget vegetariskt.');
+          parts.push('Övriga dagar: vanliga rätter, aldrig samma rätt två gånger i veckan.');
+          rulesSummary.textContent = parts.join(' ');
         }
+        updateRulesSummary();
 
-        restoreAnchor();
+        let autosaveTimer = null;
+        function queueRulesAutosave() {
+          updateRulesSummary();
+          rulesStatus.textContent = 'Sparar…';
+          clearTimeout(autosaveTimer);
+          autosaveTimer = setTimeout(() => rulesForm.requestSubmit(), 400);
+        }
+        rulesForm.addEventListener('input', queueRulesAutosave);
+        rulesForm.addEventListener('change', queueRulesAutosave);
+        rulesForm.addEventListener('async:done', (event) => {
+          rulesStatus.textContent = event.detail.ok ? 'Sparat ✓' : 'Kunde inte spara. Försök igen.';
+        });
       })();
     </script>
   </body>

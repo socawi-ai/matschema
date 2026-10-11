@@ -6,497 +6,478 @@ const {
   deleteMealById,
   deleteScheduleById,
   getMeals,
+  getRules,
   getSchedules,
   removeSchedulesBeforeWeekStart,
-  updateScheduleEntriesById,
-  updateMealMeta,
-  updateMealName,
-  updateMealIngredients,
-  upsertScheduleByWeekStart
+  saveRules,
+  updateMeal,
+  updateScheduleEntry,
+  updateSchedules
 } = require('../data/store');
 const {
-  generateWeekSchedule,
-  DAYS,
+  generateWeeks,
   getISOWeekNumber,
-  startOfWeek
+  mealCategory,
+  mealsUsedNearWeek,
+  pickRandomMealForDay,
+  startOfWeek,
+  toISODate
 } = require('../utils/scheduler');
-const {
-  getRulesByUserId,
-  upsertRulesByUserId,
-  updateUsername,
-  updateUserPasswordHash
-} = require('../db');
+const { normalizeRules, parseDaysInput } = require('../utils/rules');
+const { updateUsername, updateUserPasswordHash } = require('../db');
+const { getDealStores, setCategoryOverride, setDealStoreEnabled } = require('../data/deals');
+const { getDealsForDisplay } = require('../deals/display');
+const { refreshDeals } = require('../deals');
+const { EVERYDAY_CATEGORIES } = require('../deals/categories');
+const { getDealPlanning, ingredientCategory } = require('../deals/meal-deals');
+const { getCategoryOverrides } = require('../data/deals');
+const { nameKey } = require('../data/deal-name');
+const { version: appVersion } = require('../../package.json');
+const { LIMITS, secret, text, textList } = require('../utils/input');
 
 const router = express.Router();
 
-const DEFAULT_RULES = {
-  planningHorizonWeeks: 3,
-  fishMealsPerWeek: 1,
-  vegetarianMealsPerWeek: 1,
-  specialDays: ['Fredag', 'Lördag'],
-  sameSpecialAcrossSpecialDays: true,
-  vegetarianAllowedDays: ['Måndag', 'Onsdag', 'Torsdag', 'Söndag']
-};
+// Generated days with no dish yet hold this name; the next "fill" replaces them.
+const EMPTY_DAY_NAME = 'Rester';
+// Leftovers chosen on purpose; kept as-is by the next "fill".
+const LEFTOVERS_NAME = 'Rester/Matlåda';
 
-function parseDaysInput(value) {
-  if (Array.isArray(value)) {
-    return value
-      .map((day) => String(day || '').trim())
-      .filter((day) => day && DAYS.includes(day));
+// The admin page submits forms with fetch and then re-renders only the
+// affected section, so a full-page error render would never be seen. Fetch
+// requests get JSON instead, which the page shows as a toast.
+function isFetchRequest(req) {
+  return req.get('X-Requested-With') === 'fetch';
+}
+
+async function fail(req, res, status, error) {
+  res.status(status);
+  if (isFetchRequest(req)) {
+    return res.json({ ok: false, error });
   }
+  return renderBackend(req, res, { error });
+}
 
-  return String(value || '')
+function done(req, res, message) {
+  if (isFetchRequest(req)) {
+    return res.json({ ok: true, message: message || null });
+  }
+  return res.redirect('/backend');
+}
+
+function parseIngredients(raw) {
+  return text(raw)
     .split(/\r?\n|,/)
-    .map((day) => day.trim())
-    .filter((day) => day && DAYS.includes(day));
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
-function normalizeRules(rawRules) {
-  const rules = { ...DEFAULT_RULES, ...(rawRules || {}) };
-  rules.planningHorizonWeeks = Number.parseInt(rules.planningHorizonWeeks, 10) || 3;
-  rules.fishMealsPerWeek = Number.parseInt(rules.fishMealsPerWeek, 10) || 1;
-  rules.vegetarianMealsPerWeek = Number.parseInt(rules.vegetarianMealsPerWeek, 10) || 1;
-  rules.specialDays = Array.isArray(rules.specialDays) ? rules.specialDays.filter((d) => DAYS.includes(d)) : [...DEFAULT_RULES.specialDays];
-  rules.vegetarianAllowedDays = Array.isArray(rules.vegetarianAllowedDays)
-    ? rules.vegetarianAllowedDays.filter((d) => DAYS.includes(d))
-    : [...DEFAULT_RULES.vegetarianAllowedDays];
-  rules.sameSpecialAcrossSpecialDays = Boolean(rules.sameSpecialAcrossSpecialDays);
-  return rules;
+// The meal form has one "type" choice (regular/vegetarian/fish) plus a
+// separate special toggle.
+function tagsFromMealForm(body) {
+  const type = ['vegetarian', 'fish'].includes(body.type) ? body.type : 'regular';
+  return body.special === 'on' ? [type, 'special'] : [type];
 }
 
-function tagFromCheckboxes(body) {
-  const tags = [];
-  const isVegetarian = body.isVegetarian === 'on';
-  const isFish = body.isFish === 'on';
-  const isSpecial = body.special === 'on';
-
-  if (isVegetarian) {
-    tags.push('vegetarian');
-  } else if (isFish) {
-    tags.push('fish');
-  } else {
-    tags.push('regular');
-  }
-
-  if (isSpecial) {
-    tags.push('special');
-  }
-
-  return tags;
+async function getCurrentRules() {
+  return normalizeRules(await getRules());
 }
+
+// Short Swedish date for messages: 2026-10-11 -> "11/10".
+const shortDate = (date) => `${date.getDate()}/${date.getMonth() + 1}`;
 
 async function renderBackend(req, res, options = {}) {
-  const currentWeekStartIso = startOfWeek(new Date()).toISOString().slice(0, 10);
-  removeSchedulesBeforeWeekStart(currentWeekStartIso);
+  await removeSchedulesBeforeWeekStart(toISODate(startOfWeek(new Date())));
 
-  const meals = getMeals();
-  const regularMeals = meals.filter((meal) => !meal.special);
-  const specialMeals = meals.filter((meal) => meal.special);
-  const schedules = getSchedules()
+  const rules = await getCurrentRules();
+  const overrides = await getCategoryOverrides();
+  const meals = (await getMeals()).sort((a, b) => a.name.localeCompare(b.name, 'sv'));
+  const planning = await getDealPlanning(meals, { shoppingStores: rules.shoppingStores, chosenStore: rules.shoppingStore });
+  const mealsWithDeals = meals.map((meal) => ({
+    ...meal,
+    mainCategories: planning.mainByMealId.get(meal.id),
+    ingredientCategories: (meal.ingredients || []).map((ingredient) => ({
+      name: ingredient,
+      category: ingredientCategory(ingredient, overrides),
+      manual: overrides.has(nameKey(ingredient))
+    }))
+  }));
+  // For the schedule: the deal period, the store to shop at (and how the
+  // shopping stores compare), and each deal meal's deals at that store.
+  const dealStores = await getDealStores();
+  const storeName = (id) => (dealStores.find((s) => s.id === id) || {}).name || id;
+  const dealPlanning = {
+    active: rules.prioritizeDeals,
+    from: toISODate(planning.period.start),
+    to: toISODate(planning.period.end),
+    periodLabel: `${shortDate(planning.period.start)}–${shortDate(new Date(planning.period.end.getTime() - 1))}`,
+    chosenStore: rules.shoppingStore,
+    storeId: planning.storeId,
+    storeName: planning.storeId ? storeName(planning.storeId) : null,
+    storeRanking: planning.storeRanking.map((r) => ({ ...r, name: storeName(r.storeId) })),
+    preferredMealIds: [...planning.preferredMealIds],
+    dealsByMealId: Object.fromEntries(
+      [...planning.dealsByMealId].map(([mealId, deals]) => [
+        mealId,
+        deals.map((deal) => ({
+          name: deal.name,
+          dealText: deal.dealText,
+          storeName: deal.storeName,
+          memberOnly: deal.memberOnly,
+          validTo: deal.validTo
+        }))
+      ])
+    )
+  };
+  const schedules = (await getSchedules())
     .map((schedule) => ({
       ...schedule,
       weekNumber: schedule.weekNumber || getISOWeekNumber(schedule.weekStart)
     }))
     .sort((a, b) => (a.weekStart > b.weekStart ? 1 : -1));
-  const persistedRules = req.currentUser ? await getRulesByUserId(req.currentUser.id) : null;
-  const rules = normalizeRules(persistedRules);
 
   return res.render('backend', {
-    meals,
-    regularMeals,
+    appVersion,
+    meals: mealsWithDeals,
     rules,
     schedules,
-    specialMeals,
-    message: options.message || null,
-    error: options.error || null,
-    settingsMessage: options.settingsMessage || null,
-    settingsError: options.settingsError || null
+    dealPlanning,
+    dealStores,
+    deals: await getDealsForDisplay(),
+    everydayCategories: EVERYDAY_CATEGORIES,
+    nextWeekStart: (() => {
+      const monday = startOfWeek(new Date());
+      return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 7);
+    })(),
+    today: toISODate(new Date()),
+    EMPTY_DAY_NAME,
+    LEFTOVERS_NAME,
+    error: options.error || null
   });
 }
 
 router.get('/', async (req, res) => renderBackend(req, res));
 
+// --- Meals ---
+
+function readMealForm(req) {
+  const body = req.body || {};
+  return {
+    name: text(body.name),
+    ingredients: parseIngredients(body.ingredients),
+    tags: tagsFromMealForm(body)
+  };
+}
+
+// An error message for an invalid meal form, or null.
+function mealFormError({ name, ingredients }) {
+  if (!name) return 'Måltidsnamn måste fyllas i.';
+  if (name.length > LIMITS.name) return `Måltidsnamnet får vara högst ${LIMITS.name} tecken.`;
+  if (ingredients.length > LIMITS.ingredients) return `Högst ${LIMITS.ingredients} ingredienser per måltid.`;
+  if (ingredients.some((item) => item.length > LIMITS.ingredient)) {
+    return `En ingrediens får vara högst ${LIMITS.ingredient} tecken.`;
+  }
+  return null;
+}
+
 router.post('/meals', async (req, res) => {
-  const name = (req.body.name || '').trim();
-  const tags = tagFromCheckboxes(req.body);
-  const rawIngredients = (req.body.ingredients || '').trim();
-  const ingredients = rawIngredients
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  if (!name) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Måltidsnamn måste fyllas i.'
-    });
+  const { name, ingredients, tags } = readMealForm(req);
+  const error = mealFormError({ name, ingredients });
+  if (error) {
+    return fail(req, res, 400, error);
   }
-
-  addMeal(name, ingredients, tags);
-  return res.redirect('/backend');
+  await addMeal(name, ingredients, tags);
+  return done(req, res, `${name} har lagts till.`);
 });
 
-router.post('/meals/:mealId/meta', async (req, res) => {
-  const mealId = (req.params.mealId || '').trim();
-  if (!mealId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar måltids-id.'
-    });
+router.post('/meals/:mealId', async (req, res) => {
+  const { name, ingredients, tags } = readMealForm(req);
+  const error = mealFormError({ name, ingredients });
+  if (error) {
+    return fail(req, res, 400, error);
   }
-
-  const tags = tagFromCheckboxes(req.body);
-  updateMealMeta(mealId, { tags });
-  return res.redirect('/backend');
-});
-
-router.post('/meals/:mealId/name', async (req, res) => {
-  const mealId = (req.params.mealId || '').trim();
-  if (!mealId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar måltids-id.'
-    });
+  if (!(await updateMeal(req.params.mealId, { name, ingredients, tags }))) {
+    return fail(req, res, 404, 'Måltiden kunde inte hittas. Ladda om sidan.');
   }
-
-  const name = (req.body.name || '').trim();
-  if (!name) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Måltidsnamn måste fyllas i.'
-    });
-  }
-
-  updateMealName(mealId, name);
-  return res.redirect('/backend');
-});
-
-router.post('/meals/:mealId/ingredients', async (req, res) => {
-  const mealId = (req.params.mealId || '').trim();
-  if (!mealId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar måltids-id.'
-    });
-  }
-
-  const rawIngredients = (req.body.ingredients || '').trim();
-  const ingredients = rawIngredients
-    .split(/\r?\n|,/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  updateMealIngredients(mealId, ingredients);
-  return res.redirect('/backend');
+  return done(req, res, 'Måltiden har sparats.');
 });
 
 router.post('/meals/:mealId/delete', async (req, res) => {
-  const mealId = (req.params.mealId || '').trim();
-  if (!mealId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar måltids-id.'
-    });
-  }
-
-  deleteMealById(mealId);
-  return res.redirect('/backend');
+  await deleteMealById(req.params.mealId);
+  return done(req, res, 'Måltiden har tagits bort.');
 });
 
-router.post('/schedule/generate', async (req, res) => {
-  const meals = getMeals();
+// --- Schedule ---
+
+// Fills the planning horizon. With `replan`, generated ('auto') days in the
+// deal period are emptied first, so they're planned again with the current
+// deals; days the user chose ('manual') are never touched. Meals whose main
+// ingredient is on offer are picked first in the deal period (see
+// generateWeekSchedule), unless that's turned off in the rules.
+async function fillSchedule(req, res, { replan }) {
+  const meals = await getMeals();
   if (!meals.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Lägg till minst en måltid innan du genererar ett schema.'
-    });
+    return fail(req, res, 400, 'Lägg till minst en måltid innan du fyller schemat.');
   }
 
-  const persistedRules = req.currentUser ? await getRulesByUserId(req.currentUser.id) : null;
-  const rules = normalizeRules(persistedRules);
+  const rules = await getCurrentRules();
 
-  const fishMeals = meals.filter((meal) => (meal.tags || []).includes('fish'));
-  const vegetarianMeals = meals.filter((meal) => (meal.tags || []).includes('vegetarian'));
-  const specialMeals = meals.filter((meal) => (meal.tags || []).includes('special'));
-  const nonSpecialMeals = meals.filter((meal) => !(meal.tags || []).includes('special'));
+  // Only require the meal types the current rules actually ask for.
+  // Special meals only count for special days (see generateWeekSchedule).
+  const hasCategory = (category) => meals.some((meal) => mealCategory(meal) === category);
+  const hasNonSpecial = meals.some((meal) => mealCategory(meal) !== 'special');
 
-  if (!fishMeals.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Det krävs minst en fiskmåltid för att autofylla veckorna.'
-    });
+  if (rules.fishMealsPerWeek > 0 && !hasCategory('fish')) {
+    return fail(req, res, 400, 'Reglerna kräver fisk, men det finns ingen fiskmåltid (utan ⭐) i databasen.');
+  }
+  if (rules.vegetarianMealsPerWeek > 0 && !hasCategory('vegetarian')) {
+    return fail(req, res, 400, 'Reglerna kräver vegetariskt, men det finns ingen vegetarisk måltid (utan ⭐) i databasen.');
+  }
+  if (rules.specialDays.length > 0 && !hasCategory('special')) {
+    return fail(req, res, 400, 'Det finns specialdagar i reglerna men ingen specialmåltid i databasen.');
+  }
+  if (rules.specialDays.length < 7 && !hasNonSpecial) {
+    return fail(req, res, 400, 'Det krävs minst en vanlig (icke-special) måltid för övriga dagar.');
   }
 
-  if (!vegetarianMeals.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Det krävs minst en vegetarisk måltid för att autofylla veckorna.'
-    });
-  }
-
-  if (!specialMeals.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Det krävs minst en specialmåltid för fredag/lördag.'
-    });
-  }
-
-  if (!nonSpecialMeals.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Det krävs minst en icke-specialmåltid för vardagar/söndag.'
-    });
-  }
+  const planning = await getDealPlanning(meals, { shoppingStores: rules.shoppingStores, chosenStore: rules.shoppingStore });
+  const from = toISODate(planning.period.start);
+  const to = toISODate(planning.period.end);
+  const preference = rules.prioritizeDeals && planning.preferredMealIds.size
+    ? { mealIds: planning.preferredMealIds, from, to }
+    : null;
+  const inPeriod = (entry) => entry.date >= from && entry.date < to;
 
   const firstWeekStart = startOfWeek(new Date());
-  const existingSchedules = getSchedules();
+  const weekStarts = Array.from({ length: rules.planningHorizonWeeks }, (_, i) =>
+    new Date(firstWeekStart.getFullYear(), firstWeekStart.getMonth(), firstWeekStart.getDate() + i * 7)
+  );
 
-  for (let i = 0; i < rules.planningHorizonWeeks; i += 1) {
-    const weekStart = new Date(
-      firstWeekStart.getFullYear(),
-      firstWeekStart.getMonth(),
-      firstWeekStart.getDate() + i * 7
-    );
-    const weekStartIso = startOfWeek(weekStart).toISOString().slice(0, 10);
-    const existingSchedule = existingSchedules.find((item) => item.weekStart === weekStartIso);
-    const schedule = generateWeekSchedule(meals, weekStart, rules, existingSchedule ? existingSchedule.entries : []);
-    if (schedule) {
-      if (existingSchedule) {
-        schedule.id = existingSchedule.id;
-        schedule.createdAt = existingSchedule.createdAt;
-      }
-      upsertScheduleByWeekStart(schedule);
-    }
-  }
-
-  return res.redirect('/backend');
-});
-
-router.post('/schedule/:scheduleId/update', async (req, res) => {
-  const scheduleId = (req.params.scheduleId || '').trim();
-  if (!scheduleId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar schema-id.'
+  // Read, plan and save in one transaction, so a day changed meanwhile isn't
+  // overwritten (see updateSchedules).
+  await updateSchedules((existingSchedules) => {
+    // When re-planning, generated days in the period are emptied first (and
+    // so don't count as nearby meals for the other weeks either).
+    const knownWeeks = existingSchedules.map((schedule) => ({
+      weekStart: schedule.weekStart,
+      entries: schedule.entries.map((entry) =>
+        replan && entry.source === 'auto' && inPeriod(entry)
+          ? { ...entry, mealId: null, mealName: EMPTY_DAY_NAME }
+          : entry
+      )
+    }));
+    return generateWeeks(meals, rules, weekStarts, knownWeeks, preference).map((schedule) => {
+      const existingSchedule = existingSchedules.find((item) => item.weekStart === schedule.weekStart);
+      return existingSchedule ? { ...schedule, id: existingSchedule.id, createdAt: existingSchedule.createdAt } : schedule;
     });
-  }
-
-  const schedules = getSchedules();
-  const schedule = schedules.find((item) => item.id === scheduleId);
-  if (!schedule) {
-    res.status(404);
-    return await renderBackend(req, res, {
-      error: 'Schemat kunde inte hittas.'
-    });
-  }
-
-  const meals = getMeals();
-  const mealsById = new Map(meals.map((meal) => [meal.id, meal]));
-  const mealIdsInput = req.body.mealIds;
-  const selectedMealIds = Array.isArray(mealIdsInput) ? mealIdsInput : [mealIdsInput];
-  const customMealsInput = req.body.customMeals;
-  const customMeals = Array.isArray(customMealsInput) ? customMealsInput : [customMealsInput];
-  const randomIndexRaw = (req.body.randomIndex || '').trim();
-
-  if (selectedMealIds.length !== schedule.entries.length || customMeals.length !== schedule.entries.length) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Ogiltig schemauppdatering. Försök igen.'
-    });
-  }
-
-  const nextEntries = [];
-  for (let i = 0; i < schedule.entries.length; i += 1) {
-    const oldEntry = schedule.entries[i];
-    const customMealName = (customMeals[i] || '').trim();
-
-    if (randomIndexRaw !== '' && Number.parseInt(randomIndexRaw, 10) === i) {
-      if (!meals.length) {
-        res.status(400);
-        return await renderBackend(req, res, {
-          error: 'Det finns inga måltider i databasen att slumpa från.'
-        });
-      }
-      const randomMeal = meals[Math.floor(Math.random() * meals.length)];
-      nextEntries.push({
-        ...oldEntry,
-        mealId: randomMeal.id,
-        mealName: randomMeal.name
-      });
-      continue;
-    }
-
-    if (customMealName) {
-      nextEntries.push({
-        ...oldEntry,
-        mealId: null,
-        mealName: customMealName
-      });
-      continue;
-    }
-
-    const selectedMeal = mealsById.get((selectedMealIds[i] || '').trim());
-    if (!selectedMeal) {
-      res.status(400);
-      return await renderBackend(req, res, {
-        error: 'Välj en giltig måltid eller ange en egen måltid för alla dagar.'
-      });
-    }
-
-    nextEntries.push({
-      ...oldEntry,
-      mealId: selectedMeal.id,
-      mealName: selectedMeal.name
-    });
-  }
-
-  updateScheduleEntriesById(scheduleId, nextEntries);
-  return res.redirect('/backend');
-});
-
-router.post('/schedule/delete', async (req, res) => {
-  const scheduleId = (req.body.scheduleId || '').trim();
-  if (!scheduleId) {
-    res.status(400);
-    return await renderBackend(req, res, {
-      error: 'Saknar schema-id.'
-    });
-  }
-
-  deleteScheduleById(scheduleId);
-  return res.redirect('/backend');
-});
-
-router.post('/rules', async (req, res) => {
-  const rules = normalizeRules({
-    planningHorizonWeeks: req.body.planningHorizonWeeks,
-    fishMealsPerWeek: req.body.fishMealsPerWeek,
-    vegetarianMealsPerWeek: req.body.vegetarianMealsPerWeek,
-    specialDays: parseDaysInput(req.body.specialDays),
-    vegetarianAllowedDays: parseDaysInput(req.body.vegetarianAllowedDays),
-    sameSpecialAcrossSpecialDays: req.body.sameSpecialAcrossSpecialDays === 'on'
   });
 
-  if (!req.currentUser) {
-    return res.redirect('/auth/login');
+  const periodText = `${shortDate(planning.period.start)}–${shortDate(new Date(planning.period.end.getTime() - 1))}`;
+  const store = (await getDealStores()).find((s) => s.id === planning.storeId);
+  const storeText = preference && store ? ` med erbjudanden från ${store.name}` : '';
+  if (replan) {
+    return done(req, res, `Genererade dagar ${periodText} är planerade om${storeText}. Dina egna val behölls.`);
   }
-  await upsertRulesByUserId(req.currentUser.id, rules);
-  return res.redirect('/backend');
-});
+  return done(req, res, preference ? `Tomma dagar har fyllts. Rätter${storeText} prioriterades ${periodText}.` : 'Tomma dagar har fyllts.');
+}
 
-router.post('/settings/username', async (req, res, next) => {
-  try {
-    const nextUsername = (req.body.username || req.body.email || '').trim().toLowerCase();
-    const currentPassword = req.body.currentPassword || '';
+router.post('/schedule/generate', async (req, res) => fillSchedule(req, res, { replan: false }));
+router.post('/schedule/replan', async (req, res) => fillSchedule(req, res, { replan: true }));
 
-    if (!nextUsername || !currentPassword) {
-      return await renderBackend(req, res, {
-        settingsError: 'Användarnamn och nuvarande lösenord måste fyllas i.'
-      });
-    }
+// Changes a single day. `action` is one of:
+//   pick      – a meal from the database (mealId)
+//   custom    – a one-off meal by name (name)
+//   leftovers – "Rester/Matlåda", kept by the next fill
+//   clear     – empty the day so the next fill picks something
+//   random    – a random meal that fits the day and the week
+router.post('/schedule/:scheduleId/day/:index', async (req, res) => {
+  const body = req.body || {};
+  const index = Number.parseInt(req.params.index, 10);
+  const meals = await getMeals();
+  const rules = await getCurrentRules();
+  const allSchedules = await getSchedules();
+  let error = null;
 
-    const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
-    if (!ok) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nuvarande lösenord är felaktigt.'
-      });
-    }
-
-    try {
-      await updateUsername(req.currentUser.id, nextUsername);
-      return await renderBackend(req, res, {
-        settingsMessage: 'Användarnamnet har uppdaterats.'
-      });
-    } catch (err) {
-      if (String(err.message).includes('UNIQUE constraint failed')) {
-        return await renderBackend(req, res, {
-          settingsError: 'Användarnamnet används redan.'
-        });
+  const entry = await updateScheduleEntry(req.params.scheduleId, index, (oldEntry, schedule) => {
+    switch (body.action) {
+      case 'pick': {
+        const meal = meals.find((item) => item.id === body.mealId);
+        if (!meal) {
+          error = 'Måltiden finns inte längre. Ladda om sidan.';
+          return null;
+        }
+        return { ...oldEntry, mealId: meal.id, mealName: meal.name, source: 'manual' };
       }
-      throw err;
-    }
-  } catch (err) {
-    return next(err);
-  }
-});
-
-
-router.post('/settings/email', async (req, res, next) => {
-  try {
-    const nextUsername = (req.body.username || req.body.email || '').trim().toLowerCase();
-    const currentPassword = req.body.currentPassword || '';
-
-    if (!nextUsername || !currentPassword) {
-      return await renderBackend(req, res, {
-        settingsError: 'Användarnamn och nuvarande lösenord måste fyllas i.'
-      });
-    }
-
-    const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
-    if (!ok) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nuvarande lösenord är felaktigt.'
-      });
-    }
-
-    try {
-      await updateUsername(req.currentUser.id, nextUsername);
-      return await renderBackend(req, res, {
-        settingsMessage: 'Användarnamnet har uppdaterats.'
-      });
-    } catch (err) {
-      if (String(err.message).includes('UNIQUE constraint failed')) {
-        return await renderBackend(req, res, {
-          settingsError: 'Användarnamnet används redan.'
-        });
+      case 'custom': {
+        const name = text(body.name);
+        if (!name || name.length > LIMITS.name) {
+          error = name ? `Måltidsnamnet får vara högst ${LIMITS.name} tecken.` : 'Skriv ett namn på måltiden.';
+          return null;
+        }
+        return { ...oldEntry, mealId: null, mealName: name, source: 'manual' };
       }
-      throw err;
+      case 'leftovers':
+        return { ...oldEntry, mealId: null, mealName: LEFTOVERS_NAME, source: 'manual' };
+      case 'clear':
+        return { ...oldEntry, mealId: null, mealName: EMPTY_DAY_NAME, source: 'auto' };
+      case 'random': {
+        const near = mealsUsedNearWeek(allSchedules, schedule.weekStart);
+        const meal = pickRandomMealForDay(meals, rules, schedule.entries, index, near);
+        if (!meal) {
+          error = 'Det finns ingen annan passande måltid som inte redan används den här veckan.';
+          return null;
+        }
+        return { ...oldEntry, mealId: meal.id, mealName: meal.name, source: 'manual' };
+      }
+      default:
+        error = 'Okänd ändring.';
+        return null;
     }
-  } catch (err) {
-    return next(err);
+  });
+
+  if (!entry) {
+    return fail(req, res, 400, error || 'Dagen kunde inte hittas. Ladda om sidan.');
   }
+  return done(req, res);
 });
 
-router.post('/settings/password', async (req, res, next) => {
-  try {
-    const currentPassword = req.body.currentPassword || '';
-    const newPassword = req.body.newPassword || '';
-    const confirmPassword = req.body.confirmPassword || '';
+router.post('/schedule/:scheduleId/delete', async (req, res) => {
+  await deleteScheduleById(req.params.scheduleId);
+  return done(req, res, 'Veckan har tagits bort.');
+});
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nuvarande lösenord, nytt lösenord och bekräftelse måste fyllas i.'
-      });
-    }
+// --- Deals ---
 
-    if (newPassword.length < 8) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nytt lösenord måste vara minst 8 tecken.'
-      });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nytt lösenord och bekräftelse matchar inte.'
-      });
-    }
-
-    const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
-    if (!ok) {
-      return await renderBackend(req, res, {
-        settingsError: 'Nuvarande lösenord är felaktigt.'
-      });
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
-    await updateUserPasswordHash(req.currentUser.id, passwordHash);
-
-    return await renderBackend(req, res, {
-      settingsMessage: 'Lösenordet har uppdaterats.'
-    });
-  } catch (err) {
-    return next(err);
+router.post('/deals/refresh', async (req, res) => {
+  const results = await refreshDeals();
+  const failed = results.filter((result) => !result.ok);
+  const count = results.reduce((sum, result) => sum + (result.count || 0), 0);
+  if (failed.length === results.length && results.length) {
+    return fail(req, res, 502, `Kunde inte hämta några erbjudanden: ${failed.map((f) => `${f.store} (${f.error})`).join(', ')}`);
   }
+  const message = `Hämtade ${count} erbjudanden från ${results.length - failed.length} butiker.` +
+    (failed.length ? ` Misslyckades: ${failed.map((f) => f.store).join(', ')}.` : '');
+  return done(req, res, message);
+});
+
+// Moves a product (by name, in every store and future week) to an everyday
+// category, marks it as not everyday ('none'), or back to automatic ('').
+router.post('/deals/category', async (req, res) => {
+  const body = req.body || {};
+  const name = text(body.name);
+  const category = text(body.category);
+  const target = EVERYDAY_CATEGORIES.find((c) => c.id === category);
+  if (!name || name.length > LIMITS.productName) {
+    return fail(req, res, 400, 'Saknar varunamn.');
+  }
+  if (category && category !== 'none' && !target) {
+    return fail(req, res, 400, 'Okänd kategori.');
+  }
+
+  await setCategoryOverride(name, category || null);
+  const message = !category
+    ? `${name} sorteras automatiskt igen.`
+    : category === 'none'
+      ? `${name} räknas inte längre som vardagsvara.`
+      : `${name} flyttad till ${target.label}.`;
+  return done(req, res, message);
+});
+
+router.post('/deals/stores/:storeId', async (req, res) => {
+  const enabled = (req.body || {}).enabled === 'on';
+  if (!(await setDealStoreEnabled(req.params.storeId, enabled))) {
+    return fail(req, res, 404, 'Butiken kunde inte hittas.');
+  }
+  return done(req, res);
+});
+
+// --- Settings ---
+
+router.post('/rules', async (req, res) => {
+  const body = req.body || {};
+  // Only stores that exist; anything else in the form is ignored.
+  const knownStoreIds = new Set((await getDealStores()).map((store) => store.id));
+  const shoppingStores = textList(body.shoppingStores).filter((id) => knownStoreIds.has(id));
+  // Merged into the saved rules, so settings that live elsewhere (the store
+  // chosen in the schedule tab) are kept.
+  const rules = normalizeRules({
+    ...(await getCurrentRules()),
+    shoppingStores,
+    planningHorizonWeeks: body.planningHorizonWeeks,
+    fishMealsPerWeek: body.fishMealsPerWeek,
+    vegetarianMealsPerWeek: body.vegetarianMealsPerWeek,
+    specialDays: parseDaysInput(body.specialDays),
+    vegetarianAllowedDays: parseDaysInput(body.vegetarianAllowedDays),
+    sameSpecialAcrossSpecialDays: body.sameSpecialAcrossSpecialDays === 'on',
+    prioritizeDeals: body.prioritizeDeals === 'on'
+  });
+
+  await saveRules(rules);
+  return done(req, res);
+});
+
+// The store to shop at for the deal period: a shopping store id, or 'auto'.
+router.post('/schedule/store', async (req, res) => {
+  const store = text((req.body || {}).store) || 'auto';
+  const rules = await getCurrentRules();
+  if (store !== 'auto' && !rules.shoppingStores.includes(store)) {
+    return fail(req, res, 400, 'Butiken finns inte bland butikerna du storhandlar i.');
+  }
+  await saveRules({ ...rules, shoppingStore: store });
+  return done(req, res);
+});
+
+router.post('/settings/username', async (req, res) => {
+  const body = req.body || {};
+  const nextUsername = text(body.username).toLowerCase();
+  const currentPassword = secret(body.currentPassword);
+
+  if (!nextUsername || !currentPassword) {
+    return fail(req, res, 400, 'Användarnamn och nuvarande lösenord måste fyllas i.');
+  }
+  if (nextUsername.length > LIMITS.username) {
+    return fail(req, res, 400, `Användarnamnet får vara högst ${LIMITS.username} tecken.`);
+  }
+
+  const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
+  if (!ok) {
+    return fail(req, res, 400, 'Nuvarande lösenord är felaktigt.');
+  }
+
+  try {
+    await updateUsername(req.currentUser.id, nextUsername);
+  } catch (err) {
+    if (String(err.message).includes('UNIQUE constraint failed')) {
+      return fail(req, res, 400, 'Användarnamnet används redan.');
+    }
+    throw err;
+  }
+  return done(req, res, 'Användarnamnet har uppdaterats.');
+});
+
+router.post('/settings/password', async (req, res) => {
+  const body = req.body || {};
+  const currentPassword = secret(body.currentPassword);
+  const newPassword = secret(body.newPassword);
+  const confirmPassword = secret(body.confirmPassword);
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    return fail(req, res, 400, 'Nuvarande lösenord, nytt lösenord och bekräftelse måste fyllas i.');
+  }
+  if (newPassword.length < 8 || newPassword.length > LIMITS.password) {
+    return fail(req, res, 400, `Nytt lösenord måste vara 8–${LIMITS.password} tecken.`);
+  }
+  if (newPassword !== confirmPassword) {
+    return fail(req, res, 400, 'Nytt lösenord och bekräftelse matchar inte.');
+  }
+
+  const ok = await bcrypt.compare(currentPassword, req.currentUser.password_hash);
+  if (!ok) {
+    return fail(req, res, 400, 'Nuvarande lösenord är felaktigt.');
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 12);
+  await updateUserPasswordHash(req.currentUser.id, passwordHash);
+  return done(req, res, 'Lösenordet har uppdaterats.');
 });
 
 module.exports = router;

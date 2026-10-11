@@ -1,0 +1,291 @@
+{
+ "results": [
+  {
+   "offlinePromotionLowestHistoricalPrice": null,
+   "manufacturer": "SPANIEN • PORTUGAL • SVERIGE",
+   "potentialPromotions": [
+    {
+     "validUntil": 1791755999000,
+     "redeemLimitLabel": "",
+     "brands": [
+      "SPANIEN • PORTUGAL • SVERIGE"
+     ],
+     "comparePrice": "19:90 kr/kg",
+     "mainProductCode": "101280073_KG",
+     "discountPrice": null,
+     "splashTitleText": "",
+     "realMixAndMatch": false,
+     "qualifyingCount": null,
+     "cartLabel": "19,90/kg",
+     "timesUsed": null,
+     "conditionLabel": null,
+     "rewardLabel": "19,90/kg",
+     "textLabel": "",
+     "promotionRedeemLimit": null,
+     "promotionPercentage": null,
+     "code": "2500326476",
+     "threshold": null,
+     "endDate": "11/10-2026",
+     "price": null,
+     "productCodes": null,
+     "promotionType": "SubtotalOrderPromotion",
+     "textLabelGenerated": "",
+     "sorting": null,
+     "weightVolume": null,
+     "redeemLimit": null,
+     "campaignType": "GENERAL",
+     "startDate": "05/10-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z084",
+      "visible": null
+     },
+     "savePrice": null,
+     "name": "Delade pumpor",
+     "priority": null,
+     "description": "Klass 1"
+    }
+   ],
+   "ranking": 320.87628509074,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07311042015345_C1C0_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 320.87628,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "VIKT",
+    "type": "ProductBasketTypeEnum"
+   },
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/07311042015345_C1C0_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/kg",
+   "online": false,
+   "googleAnalyticsCategory": "",
+   "displayVolume": null,
+   "priceNoUnit": "29,90",
+   "showGoodPriceIcon": false,
+   "title": "2641 F&G + BLOMMOR DR WIL",
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07311042015345_C1C0_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "price": "29,90 kr",
+   "lowestHistoricalPrice": null,
+   "labels": [
+    "keyhole"
+   ],
+   "name": "Delade pumpor"
+  },
+  {
+   "offlinePromotionLowestHistoricalPrice": null,
+   "manufacturer": "FIRST PRICE",
+   "potentialPromotions": [
+    {
+     "validUntil": 1793573999000,
+     "redeemLimitLabel": "",
+     "brands": [
+      "FIRST PRICE"
+     ],
+     "comparePrice": "0:15 kr/st",
+     "mainProductCode": "101279773_ST",
+     "discountPrice": null,
+     "splashTitleText": "Alltid bra pris",
+     "realMixAndMatch": false,
+     "qualifyingCount": 2,
+     "cartLabel": "2 för 15,00",
+     "timesUsed": null,
+     "conditionLabel": "2 för",
+     "rewardLabel": "15,00",
+     "textLabel": "",
+     "promotionRedeemLimit": null,
+     "promotionPercentage": null,
+     "code": "2500313743",
+     "threshold": null,
+     "endDate": "01/11-2026",
+     "price": 15.0,
+     "productCodes": null,
+     "promotionType": "MixMatchPricePromotion",
+     "textLabelGenerated": "",
+     "sorting": null,
+     "weightVolume": "50p",
+     "redeemLimit": null,
+     "campaignType": "GENERAL",
+     "startDate": "03/08-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z019",
+      "visible": null
+     },
+     "savePrice": "Spara 4,80 kr",
+     "name": "Hundbajspåse 50p",
+     "priority": null,
+     "description": null
+    }
+   ],
+   "ranking": 320.85224134546,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/07340083467622_C1L1_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 320.85223,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "ST",
+    "type": "ProductBasketTypeEnum"
+   },
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/07340083467622_C1L1_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/st",
+   "online": false,
+   "googleAnalyticsCategory": "",
+   "displayVolume": "50p",
+   "priceNoUnit": "9,90",
+   "showGoodPriceIcon": true,
+   "title": "2632-44 ORD. MULTI WIL",
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/07340083467622_C1L1_s01",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "price": "9,90 kr",
+   "lowestHistoricalPrice": null,
+   "labels": null,
+   "name": "Hundbajspåse 50p"
+  },
+  {
+   "offlinePromotionLowestHistoricalPrice": null,
+   "manufacturer": "DALSJÖFORS",
+   "potentialPromotions": [
+    {
+     "validUntil": 1791755999000,
+     "redeemLimitLabel": "Max 3 köp",
+     "brands": [
+      "DALSJÖFORS"
+     ],
+     "comparePrice": "139:00 kr/kg",
+     "mainProductCode": "100748746_KG",
+     "discountPrice": null,
+     "splashTitleText": "",
+     "realMixAndMatch": false,
+     "qualifyingCount": null,
+     "cartLabel": "139/kg",
+     "timesUsed": null,
+     "conditionLabel": null,
+     "rewardLabel": "139/kg",
+     "textLabel": "",
+     "promotionRedeemLimit": 3,
+     "promotionPercentage": null,
+     "code": "2500321971",
+     "threshold": null,
+     "endDate": "11/10-2026",
+     "price": null,
+     "productCodes": null,
+     "promotionType": "SubtotalOrderPromotion",
+     "textLabelGenerated": "",
+     "sorting": null,
+     "weightVolume": "Ca 500g",
+     "redeemLimit": 3,
+     "campaignType": "LOYALTY",
+     "startDate": "08/10-2026",
+     "textLabelManual": null,
+     "offerStatus": null,
+     "promotionTheme": {
+      "code": "Z020",
+      "visible": null
+     },
+     "savePrice": "Spara 30,00 kr",
+     "name": "Fläskfilé",
+     "priority": null,
+     "description": "Sverige"
+    }
+   ],
+   "ranking": 2500.0,
+   "image": {
+    "imageType": "PRIMARY",
+    "format": "product",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_200/02385332900005_C1N1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "solrSearchScore": 25000.0,
+   "energyDeclaration": null,
+   "inactivePotentialPromotions": [],
+   "promotionProductOrdinaryComparePrice": null,
+   "promotionProductOrdinaryComparePriceUnit": null,
+   "productBasketType": {
+    "code": "VIKT",
+    "type": "ProductBasketTypeEnum"
+   },
+   "originalImage": {
+    "imageType": "PRIMARY",
+    "format": "original",
+    "url": "https://assets.axfood.se/image/upload/f_auto/02385332900005_C1N1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "priceUnit": "kr/kg",
+   "online": false,
+   "googleAnalyticsCategory": "",
+   "displayVolume": "Ca 500g",
+   "priceNoUnit": "169,00",
+   "showGoodPriceIcon": false,
+   "title": "2641 W+ HELGERBJUDANDE WIL",
+   "thumbnail": {
+    "imageType": "PRIMARY",
+    "format": "thumbnail",
+    "url": "https://assets.axfood.se/image/upload/f_auto,t_100/02385332900005_C1N1_s02",
+    "altText": null,
+    "galleryIndex": null,
+    "width": null
+   },
+   "price": "169,00 kr",
+   "lowestHistoricalPrice": null,
+   "labels": [
+    "swedish_flag",
+    "meat_from_sweden"
+   ],
+   "name": "Fläskfilé"
+  }
+ ],
+ "pagination": {
+  "totalNumberOfResults": 3
+ }
+}

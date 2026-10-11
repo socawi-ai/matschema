@@ -41,10 +41,25 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-  if (embedAllowedOrigins.length) {
-    const frameAncestors = ["'self'", ...embedAllowedOrigins].join(' ');
-    res.setHeader('Content-Security-Policy', `frame-ancestors ${frameAncestors}`);
-  } else {
+  // Everything the pages load comes from the app itself. Inline scripts are
+  // still needed (the pages have small inline scripts), but external
+  // scripts, plugins, <base> changes and form posts elsewhere are blocked.
+  const frameAncestors = embedAllowedOrigins.length ? ["'self'", ...embedAllowedOrigins].join(' ') : "'none'";
+  res.setHeader(
+    'Content-Security-Policy',
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data:",
+      "connect-src 'self'",
+      "object-src 'none'",
+      "base-uri 'none'",
+      "form-action 'self'",
+      `frame-ancestors ${frameAncestors}`
+    ].join('; ')
+  );
+  if (!embedAllowedOrigins.length) {
     res.setHeader('X-Frame-Options', 'DENY');
   }
 
@@ -52,6 +67,20 @@ app.use((req, res, next) => {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   next();
+});
+
+// Changes (POST etc.) must come from the app's own pages. Browsers say where
+// a request comes from in Sec-Fetch-Site; SameSite cookies already stop other
+// sites, but not a sibling subdomain ("same-site"), e.g. another app on the
+// same home domain. Requests without the header (older browsers, curl) are
+// let through, as before.
+app.use((req, res, next) => {
+  const site = req.get('Sec-Fetch-Site');
+  const changes = !['GET', 'HEAD', 'OPTIONS'].includes(req.method);
+  if (changes && (site === 'cross-site' || site === 'same-site')) {
+    return res.status(403).send('Förfrågan kom från en annan webbplats och stoppades.');
+  }
+  return next();
 });
 
 app.use(express.json({ limit: '256kb' }));
@@ -99,7 +128,13 @@ app.set('view engine', 'ejs');
 app.use('/health', healthRouter);
 app.use('/frontend', frontendRouter);
 app.use('/auth', authRouter);
-app.use('/backend', requireAuth, backendRouter);
+// Admin pages show private data: don't keep them in browser caches (e.g.
+// visible with the back button after logging out).
+const noStore = (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+};
+app.use('/backend', noStore, requireAuth, backendRouter);
 app.use('/', homeRouter);
 
 module.exports = app;

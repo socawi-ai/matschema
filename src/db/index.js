@@ -3,7 +3,10 @@ const path = require('path');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
 
-const dataDir = path.join(__dirname, '..', '..', 'data');
+const { runMigrations } = require('./migrations');
+
+// MATSCHEMA_DATA_DIR lets tests point the app at a throwaway directory.
+const dataDir = process.env.MATSCHEMA_DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const dbPath = path.join(dataDir, 'matschema.sqlite');
 
 let dbPromise;
@@ -20,21 +23,28 @@ async function ensureUsersUsernameColumn(db) {
   await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_username_unique ON users(username)');
 }
 
-async function getDb() {
-  if (dbPromise) {
-    return dbPromise;
+// Opens the database once and brings its schema up to date. Callers share
+// the same promise, so nobody gets the connection before setup is finished.
+function getDb() {
+  if (!dbPromise) {
+    dbPromise = openAndMigrate();
   }
+  return dbPromise;
+}
 
+async function openAndMigrate() {
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  dbPromise = open({
+  const db = await open({
     filename: dbPath,
     driver: sqlite3.Database
   });
 
-  const db = await dbPromise;
+  await db.exec('PRAGMA foreign_keys = ON');
+  await db.exec('PRAGMA busy_timeout = 5000');
+
   await db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,6 +57,8 @@ async function getDb() {
   `);
   await ensureUsersUsernameColumn(db);
 
+  // No longer written to (rules are shared now, see the settings table),
+  // but kept so migration 1 can read rules saved by older versions.
   await db.exec(`
     CREATE TABLE IF NOT EXISTS user_rules (
       user_id INTEGER PRIMARY KEY,
@@ -56,6 +68,7 @@ async function getDb() {
     )
   `);
 
+  await runMigrations(db, dataDir);
   return db;
 }
 
@@ -117,44 +130,14 @@ async function updateUserPasswordHash(id, passwordHash) {
   return findUserById(id);
 }
 
-async function getRulesByUserId(userId) {
-  const db = await getDb();
-  const row = await db.get('SELECT rules_json FROM user_rules WHERE user_id = ?', userId);
-  if (!row) return null;
-  try {
-    return JSON.parse(row.rules_json);
-  } catch {
-    return null;
-  }
-}
-
-async function upsertRulesByUserId(userId, rules) {
-  const db = await getDb();
-  const updatedAt = new Date().toISOString();
-  await db.run(
-    `
-      INSERT INTO user_rules (user_id, rules_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        rules_json = excluded.rules_json,
-        updated_at = excluded.updated_at
-    `,
-    userId,
-    JSON.stringify(rules),
-    updatedAt
-  );
-  return getRulesByUserId(userId);
-}
-
 module.exports = {
   countUsers,
   createUser,
   findUserByEmail,
   findUserByUsername,
   findUserById,
-  getRulesByUserId,
+  dataDir,
   getDb,
-  upsertRulesByUserId,
   updateUserEmail,
   updateUsername,
   updateUserPasswordHash
