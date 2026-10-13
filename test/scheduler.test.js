@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 
 const {
   DAYS,
+  clearForReplan,
   generateWeekSchedule,
   generateWeeks,
   mealsUsedNearWeek,
@@ -258,4 +259,24 @@ test('🎲 avoids meals planned in nearby weeks', () => {
   for (let run = 0; run < 30; run += 1) {
     assert.equal(pickRandomMealForDay(MEALS, rules, entries, 4, near).id, 'sf', 'the only special not used nearby');
   }
+});
+
+test('re-planning empties generated days, or every day in the period', () => {
+  const weeks = [{
+    weekStart: '2026-10-05',
+    entries: [
+      { day: 'Torsdag', date: '2026-10-08', mealId: 'r1', mealName: 'Meal r1', source: 'auto' }, // before the period
+      { day: 'Fredag', date: '2026-10-09', mealId: 's1', mealName: 'Meal s1', source: 'manual' },
+      { day: 'Lördag', date: '2026-10-10', mealId: 's1', mealName: 'Meal s1', source: 'auto' },
+      { day: 'Söndag', date: '2026-10-11', mealId: null, mealName: 'Rester/Matlåda', source: 'manual' }
+    ]
+  }];
+  const period = { from: '2026-10-09', to: '2026-10-26' };
+  const names = (result) => result[0].entries.map((e) => e.mealName);
+
+  assert.deepEqual(names(clearForReplan(weeks, period, 'generated')), ['Meal r1', 'Meal s1', 'Rester', 'Rester/Matlåda'], 'own choices kept');
+  const all = clearForReplan(weeks, period, 'all');
+  assert.deepEqual(names(all), ['Meal r1', 'Rester', 'Rester', 'Rester'], 'everything in the period, nothing before it');
+  assert.ok(all[0].entries.slice(1).every((e) => e.mealId === null && e.source === 'auto'), 'emptied days count as generated');
+  assert.equal(weeks[0].entries[1].mealId, 's1', 'input not changed');
 });

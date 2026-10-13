@@ -53,7 +53,7 @@ async function bootstrapDefaultAdminIfNeeded() {
   } else {
     console.log('Lösenord: [dolt i produktion]');
   }
-  console.log('Ändra lösenordet direkt i backend under användarinställningar.');
+  console.log('Ändra lösenordet direkt i admin under Inställningar → Konto.');
   console.log('===============================================');
   console.log('');
 }

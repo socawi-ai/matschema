@@ -80,16 +80,7 @@
               <button type="submit" class="button">✨ Fyll tomma dagar</button>
             </form>
             <% if (dealPlanning.active) { %>
-              <form
-                method="post"
-                action="/backend/schedule/replan"
-                data-async
-                data-refresh="#schedule-section"
-                data-busy-text="Planerar…"
-                data-confirm="Planera om genererade dagar <%= dealPlanning.periodLabel %> med veckans erbjudanden? Dagar du valt själv behålls."
-              >
-                <button type="submit" class="button secondary">🏷 Planera om med erbjudanden</button>
-              </form>
+              <button type="button" class="button secondary" id="replan-button">🏷 Planera om med erbjudanden</button>
             <% } %>
             <p class="muted">Fyller tomma dagar <%= rules.planningHorizonWeeks %> veckor framåt enligt reglerna. Dagar du redan valt ändras inte.</p>
           </div>
@@ -495,6 +486,25 @@
       <div class="dialog-actions">
         <button type="button" class="button secondary" data-confirm-answer="no">Avbryt</button>
         <button type="button" class="button danger" data-confirm-answer="yes">Ja, fortsätt</button>
+      </div>
+    </dialog>
+
+    <!-- Re-planning with the current deals: which days to replace. -->
+    <dialog id="replan-dialog" class="admin-meal-dialog confirm-dialog">
+      <h3>Planera om med erbjudanden</h3>
+      <p id="replan-period"></p>
+      <div class="replan-choices">
+        <button type="button" class="button" data-replan-scope="generated">
+          Bara genererade dagar
+          <span>Dagar du valt själv, rester och egna måltider behålls.</span>
+        </button>
+        <button type="button" class="button danger" data-replan-scope="all">
+          Hela perioden
+          <span>Alla dagar planeras om, även dagar du valt själv, rester och egna måltider.</span>
+        </button>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button secondary" data-close-dialog>Avbryt</button>
       </div>
     </dialog>
 
@@ -1063,6 +1073,27 @@
             const updated = readMeals().find((m) => m.id === editingMeal.id);
             if (updated) renderIngredientCategories(updated);
           }
+        });
+
+        // ---------- Schedule: re-plan with deals ----------
+        const replanDialog = document.getElementById('replan-dialog');
+        document.addEventListener('click', async (event) => {
+          if (event.target.closest('#replan-button')) {
+            const planning = JSON.parse(document.getElementById('deal-planning-data').textContent);
+            document.getElementById('replan-period').textContent =
+              `Dagarna ${planning.periodLabel} planeras om` + (planning.storeName ? ` med erbjudanden från ${planning.storeName}.` : '.');
+            replanDialog.showModal();
+            return;
+          }
+          const choice = event.target.closest('[data-replan-scope]');
+          if (!choice) return;
+          replanDialog.close();
+          const button = document.getElementById('replan-button');
+          if (button) {
+            button.disabled = true;
+            button.textContent = 'Planerar…';
+          }
+          await post('/backend/schedule/replan', { scope: choice.dataset.replanScope }, '#schedule-section');
         });
 
         // ---------- Schedule: which store to shop at ----------

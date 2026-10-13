@@ -276,6 +276,22 @@ function generateWeeks(meals, rules, weekStarts, knownWeeks = [], preference = n
   return schedules;
 }
 
+// Empties days in [from, to) ('YYYY-MM-DD', to exclusive) so they're
+// planned again: with scope 'generated' only days the generator filled
+// (source 'auto'), with scope 'all' every day in the range, including the
+// user's own choices. Emptied days count as generated. Returns new week
+// objects; the input is not changed.
+function clearForReplan(weeks, { from, to }, scope = 'generated') {
+  return weeks.map((week) => ({
+    ...week,
+    entries: (week.entries || []).map((entry) =>
+      entry.date >= from && entry.date < to && (scope === 'all' || entry.source === 'auto')
+        ? { ...entry, mealId: null, mealName: 'Rester', source: 'auto' }
+        : entry
+    )
+  }));
+}
+
 function mealCategory(meal) {
   const tags = (meal && meal.tags) || [];
   if (tags.includes('special')) return 'special';
@@ -343,6 +359,7 @@ function buildThreeWeekView(schedules, baseDate = new Date()) {
 
 module.exports = {
   buildThreeWeekView,
+  clearForReplan,
   DAYS,
   generateWeekSchedule,
   generateWeeks,

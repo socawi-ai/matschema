@@ -15,6 +15,7 @@ const {
   updateSchedules
 } = require('../data/store');
 const {
+  clearForReplan,
   generateWeeks,
   getISOWeekNumber,
   mealCategory,
@@ -208,12 +209,13 @@ router.post('/meals/:mealId/delete', async (req, res) => {
 
 // --- Schedule ---
 
-// Fills the planning horizon. With `replan`, generated ('auto') days in the
-// deal period are emptied first, so they're planned again with the current
-// deals; days the user chose ('manual') are never touched. Meals whose main
-// ingredient is on offer are picked first in the deal period (see
-// generateWeekSchedule), unless that's turned off in the rules.
-async function fillSchedule(req, res, { replan }) {
+// Fills the planning horizon. With `replan`, days in the deal period are
+// emptied first so they're planned again with the current deals: only
+// generated ('auto') days with scope 'generated', every day with scope 'all'
+// (see clearForReplan). Meals whose main ingredient is on offer are picked
+// first in the deal period (see generateWeekSchedule), unless that's turned
+// off in the rules.
+async function fillSchedule(req, res, { replan, scope = 'generated' }) {
   const meals = await getMeals();
   if (!meals.length) {
     return fail(req, res, 400, 'Lägg till minst en måltid innan du fyller schemat.');
@@ -245,7 +247,6 @@ async function fillSchedule(req, res, { replan }) {
   const preference = rules.prioritizeDeals && planning.preferredMealIds.size
     ? { mealIds: planning.preferredMealIds, from, to }
     : null;
-  const inPeriod = (entry) => entry.date >= from && entry.date < to;
 
   const firstWeekStart = startOfWeek(new Date());
   const weekStarts = Array.from({ length: rules.planningHorizonWeeks }, (_, i) =>
@@ -255,16 +256,9 @@ async function fillSchedule(req, res, { replan }) {
   // Read, plan and save in one transaction, so a day changed meanwhile isn't
   // overwritten (see updateSchedules).
   await updateSchedules((existingSchedules) => {
-    // When re-planning, generated days in the period are emptied first (and
-    // so don't count as nearby meals for the other weeks either).
-    const knownWeeks = existingSchedules.map((schedule) => ({
-      weekStart: schedule.weekStart,
-      entries: schedule.entries.map((entry) =>
-        replan && entry.source === 'auto' && inPeriod(entry)
-          ? { ...entry, mealId: null, mealName: EMPTY_DAY_NAME }
-          : entry
-      )
-    }));
+    // Emptied days don't count as nearby meals for the other weeks either.
+    const weeks = existingSchedules.map((schedule) => ({ weekStart: schedule.weekStart, entries: schedule.entries }));
+    const knownWeeks = replan ? clearForReplan(weeks, { from, to }, scope) : weeks;
     return generateWeeks(meals, rules, weekStarts, knownWeeks, preference).map((schedule) => {
       const existingSchedule = existingSchedules.find((item) => item.weekStart === schedule.weekStart);
       return existingSchedule ? { ...schedule, id: existingSchedule.id, createdAt: existingSchedule.createdAt } : schedule;
@@ -274,6 +268,9 @@ async function fillSchedule(req, res, { replan }) {
   const periodText = `${shortDate(planning.period.start)}–${shortDate(new Date(planning.period.end.getTime() - 1))}`;
   const store = (await getDealStores()).find((s) => s.id === planning.storeId);
   const storeText = preference && store ? ` med erbjudanden från ${store.name}` : '';
+  if (replan && scope === 'all') {
+    return done(req, res, `Hela perioden ${periodText} är planerad om${storeText}.`);
+  }
   if (replan) {
     return done(req, res, `Genererade dagar ${periodText} är planerade om${storeText}. Dina egna val behölls.`);
   }
@@ -281,7 +278,10 @@ async function fillSchedule(req, res, { replan }) {
 }
 
 router.post('/schedule/generate', async (req, res) => fillSchedule(req, res, { replan: false }));
-router.post('/schedule/replan', async (req, res) => fillSchedule(req, res, { replan: true }));
+// scope: 'generated' (default) keeps the user's own choices, 'all' re-plans every day in the period.
+router.post('/schedule/replan', async (req, res) =>
+  fillSchedule(req, res, { replan: true, scope: text((req.body || {}).scope) === 'all' ? 'all' : 'generated' })
+);
 
 // Changes a single day. `action` is one of:
 //   pick      – a meal from the database (mealId)
