@@ -39,6 +39,9 @@ const EVERYDAY_CATEGORIES = [
   { id: 'potatis', label: 'Potatis', emoji: '🥔' },
   { id: 'pasta', label: 'Pasta', emoji: '🍝' },
   { id: 'ris', label: 'Ris & gryn', emoji: '🍚' },
+  // Everyday bread: loaves, toast, rolls, crispbread, flatbread, tortillas.
+  // Not sweet bakery (buns, cookies, pastries).
+  { id: 'brod', label: 'Bröd', emoji: '🍞' },
   { id: 'mjol', label: 'Mjöl & bakning', emoji: '🌾' },
   { id: 'kaffe', label: 'Kaffe & te', emoji: '☕' }
 ];
@@ -51,8 +54,8 @@ const EXCLUDED_STORE_CATEGORY = new RegExp(
     anywhere(
       'hem & fritid', 'hemmet', 'hälsa', 'skönhet', 'personlig vård', 'djurvård', 'husdjur', 'hundmat',
       'kattmat', 'toalettpapper', 'bordsdukning', 'glass', 'godis', 'konfektyr', 'choklad', 'öl & cider',
-      'kall dryck', 'fruktjuice', 'kakor', 'snacks', 'desserter', 'pizza', 'färdigrätter', 'bröd',
-      'bageri', 'marmelad', 'sylt', 'konserv'
+      'kall dryck', 'fruktjuice', 'kakor', 'snacks', 'desserter', 'pizza', 'färdigrätter',
+      'marmelad', 'sylt', 'konserv'
     ).source,
     word('läsk', 'vin', 'vitt vin', 'rött vin').source,
     // Lidl's "Färdigmat från frysdisk", but not Coop's mixed "Chark/Deli/Färdigmat".
@@ -62,14 +65,15 @@ const EXCLUDED_STORE_CATEGORY = new RegExp(
 );
 
 // Words that make a product something other than what its other words
-// suggest: snacks and sweets, drinks, bread, ready meals, sauces, cold cuts,
+// suggest: snacks and sweets, sweet bakery, drinks, ready meals, sauces, cold cuts,
 // canned goods (not chosen as a category), non-food. Watch for words hiding
 // inside others: "läsk" is in "fläsk", "dryck" in "mjölkdryck".
 const EXCLUDED_NAME = new RegExp(
   [
     anywhere(
       'choklad', 'godis', 'glass', 'chips', 'snacks', 'bågar', 'kex', 'kaka', 'kakor', 'tårta', 'bulle',
-      'pizza', 'paj', 'shake', 'smoothie', 'juice', 'iskaffe', 'ikaffe', 'bröd', 'kokos', 'soppa',
+      'pizza', 'paj', 'shake', 'smoothie', 'juice', 'iskaffe', 'ikaffe', 'kokos', 'soppa',
+      'muffin', 'croissant', 'donut', 'munkar', 'gifflar', 'skumtopp', 'biskvi', 'mazarin',
       'gratäng', 'kebab', 'nugget', 'panerad', 'friterad', 'dressing', 'sås', 'dipp', 'röra', 'pesto',
       'risgrynsgröt', 'inlagd', 'senapssill', 'matjessill', 'löksill', 'salladsbar',
       'pastej', 'salami', 'pålägg', 'skinka', 'prosciutto', 'antipasti', 'rökt kalkon', 'krossade', 'passerade',
@@ -81,9 +85,28 @@ const EXCLUDED_NAME = new RegExp(
     ).source,
     word('feta').source,
     `${NOT_LETTER_BEFORE}läsk`,
+    // Sweet buns ("Kanelbullar"), not meatballs ("Köttbullar", "Vegobullar").
+    '(?<!kött|vego|fisk|kyckling)bullar',
     '(?<!mjölk|havre|soja|mandel|ris)dryck'
   ].join('|'),
   'iu'
+);
+
+// Bread, checked before the exclusions above: many Swedish breads are
+// called "-kaka" (Hönökaka, Polarkaka, Rågkaka), which would count as cake.
+const BREAD = new RegExp(
+  [
+    ending(
+      'bröd', 'knäcke', 'limpa', 'levain', 'baguette', 'baguetter', 'ciabatta', 'bagel', 'bagels', 'fralla',
+      'frallor', 'kusar', 'råghalvor', 'rågform', 'grova', 'skorpor', 'tortilla', 'tortillas', 'wraps',
+      'hönökaka', 'polarkaka', 'jollekaka', 'rågkaka', 'vetekaka', 'mjukkaka', 'tekakor'
+    ).source
+  ].join('|'),
+  'iu'
+);
+// ...but not these, even with a bread word in the name.
+const NOT_BREAD = anywhere(
+  'wienerbröd', 'kaffebröd', 'ströbröd', 'brödmix', 'chips', 'strips', 'burk', 'röror', 'riskak', 'majskak'
 );
 
 // Plant-based products that chains file under ready meals; kept even though
@@ -120,7 +143,8 @@ const RULES = [
     'svecia', 'gouda', 'edamer', 'jarlsberg', 'norvegia', 'västerbotten', 'cheddar', 'appenzeller',
     'emmentaler', 'gruyère', 'billinge', 'klassiker', 'hushållsost', 'riven ost'
   )],
-  ['ost', ending('ost', 'ostar'), (cat, name) => !/frukost|kompost|toast/iu.test(name)],
+  // Not "Frukost", "Kompost", or toast bread like "Fiberrost".
+  ['ost', ending('ost', 'ostar'), (cat, name) => !/frukost|kompost|toast|rost(?!\p{L})/iu.test(name)],
   ['mejeri', anywhere('grädde')],
   ['mejeri', ending('mjölk'), (cat, name) => !/fil|kokos|mandel|choklad/iu.test(name)],
   ['mejeri', anywhere('mellanmjölk', 'standardmjölk', 'lättmjölk', 'havredryck', 'mjölkdryck', 'laktosfri mjölk')],
@@ -178,7 +202,10 @@ const STORE_CATEGORY_HINTS = [
   [/^(grönsaker|färska örter)$/iu, 'gronsaker'],
   [/^ost$/iu, 'ost'],
   [/^(smör|oljor och fetter)$/iu, 'mejeri'],
-  [/^kaffe, te och kakao$/iu, 'kaffe']
+  [/^kaffe, te och kakao$/iu, 'kaffe'],
+  // ICA's "Bröd, kex & bageri", Coop's "Bröd", Lidl's "Färskt bröd" and
+  // "Toast & hållbara bakverk"; cookies and sweets there are excluded by name.
+  [/^(bröd|färskt bröd|bröd, kex & bageri|toast & hållbara bakverk)$/iu, 'brod']
 ];
 
 // Returns an everyday category id for a deal, or null for everything else.
@@ -186,6 +213,7 @@ function classifyDeal(deal) {
   const name = String(deal.name || '');
   const storeCategory = String(deal.category || '').trim();
   if (EXCLUDED_STORE_CATEGORY.test(storeCategory) && !PLANT_PROTEIN.test(name)) return null;
+  if (BREAD.test(name) && !NOT_BREAD.test(name)) return 'brod';
   if (EXCLUDED_NAME.test(name)) return null;
 
   for (const [id, pattern, extra] of RULES) {

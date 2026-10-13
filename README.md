@@ -244,14 +244,15 @@ The data is for your own household's planning. Don't republish it.
 
 Each offer is sorted by keywords in its name into one of these categories:
 
-Mejeri & matfett · Ost · Ägg · Kött · Köttfärs · Kyckling · Korv & bacon · Fisk & skaldjur · Vegetariskt protein · Grönsaker · Frysta grönsaker · Potatis · Pasta · Ris & gryn · Mjöl & bakning · Kaffe & te
+Mejeri & matfett · Ost · Ägg · Kött · Köttfärs · Kyckling · Korv & bacon · Fisk & skaldjur · Vegetariskt protein · Grönsaker · Frysta grönsaker · Potatis · Pasta · Ris & gryn · Bröd · Mjöl & bakning · Kaffe & te
 
 Some categories are deliberately narrow:
 
 - **Ost** is sliceable and hard cheese only.
 - **Yoghurt** is ordinary breakfast yoghurt and filmjölk in packs of 500 g or more.
+- **Bröd** is everyday bread: loaves, toast bread, rolls, crispbread, flatbread and tortillas, including breads named *-kaka* such as Hönökaka and Polarkaka. Buns, cookies and pastries don't count.
 
-Snacks, sweets, drinks, bread, ready meals, cold cuts and canned goods aren't counted as everyday groceries.
+Snacks, sweets, sweet bakery, drinks, ready meals, cold cuts and canned goods aren't counted as everyday groceries.
 
 Most products land right, but not all, especially brand names without a describing word. Fix those with ✎, and glance at 🆕 Nya varor now and then.
 

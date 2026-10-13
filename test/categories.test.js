@@ -37,6 +37,11 @@ test('everyday products land in the right category', () => {
     pasta: ['Spaghetti', 'Gammaldags idealmakaroner', 'Färsk gnocchi'],
     ris: ['Jasminris', 'GOLDEN SUN Basmatiris Långkornigt', 'Ekologiska Havregryn', 'Nudlar', 'Grötris'],
     mjol: ['Rörsocker strö', 'Vetemjöl 2 kg'],
+    brod: [
+      'Lantbröd, potatisbröd', 'Grötbröd', 'Orientbröd 4-pack', 'Korvbröd 16-pack', 'Powerknäcke', 'Tortilla 8-pack',
+      'Hamburgerbröd', 'Hönökaka Originalet', 'Jubileumskaka/Polarkaka', 'MATRIKET Rågkaka', 'Vetelevain',
+      'Frök-/Kesokusar', 'Grovt tunnbröd', 'Tortillabröd', 'KärnSund & Lantgoda', 'Fiberrost'
+    ],
     kaffe: ['Kaffe', 'BELLAROM Mellanrost', 'Te 17-pack', 'ITALIAMO Kaffebönor']
   };
   const categories = {
@@ -45,7 +50,9 @@ test('everyday products land in the right category', () => {
     'Fryst vego': 'Djupfryst',
     'Bacon/stekfläsk': 'Chark/Deli/Färdigmat',
     'MATRIKET Chorizofärs': 'Fläskkött',
-    'Bladpersilja': 'Färska örter'
+    'Bladpersilja': 'Färska örter',
+    'KärnSund & Lantgoda': 'Bröd, kex & bageri',
+    'Fiberrost': 'Färskt bröd'
   };
   for (const [id, names] of Object.entries(expected)) {
     for (const name of names) {
@@ -60,13 +67,23 @@ test('things that only look like everyday products are left out', () => {
     ['Kokosmjölk'], // "mjöl" in "kokosmjölk"
     ['Ekologisk kokosmjölk, kokosgrädde'],
     ['Frukost'], // "ost" ending
-    // Snacks, sweets, drinks, bread.
+    ['Fiberrost'], // toast bread, not cheese (and without a bread category, not known as bread)
+    // Snacks, sweets, sweet bakery, drinks.
     ['HALLOWEEN Mjölkchoklad', 'Chokladvaror'],
     ['Cheez doodles Maxipack', 'Smakrika snacks'],
     ['Energidryck'],
     ['Proteindryck', 'Mejeri'],
-    ['Korvbröd 16-pack'],
-    ['Lantbröd, potatisbröd'],
+    ['Kakor', 'Bröd'],
+    ['Skumtoppar', 'Bröd, kex & bageri'],
+    ['Smaksatta riskakor, majskakor', 'Bröd, kex & bageri'],
+    ['Kanelbullar', 'Bröd'],
+    ['Wienerbröd'],
+    ['Ströbröd'],
+    // Bread words in things that aren't bread.
+    ['SANTA MARIA Giant tortilla chips salsa', 'Smakrika snacks'],
+    ['Tortilla strips', 'Smakrika snacks'],
+    ['Knäckebrödburk Lyon', 'Hem & fritid'],
+    ['Baguetteröror'],
     ['Iskaffe', 'Mejeri'],
     // Ready meals, coated or fried, cold cuts.
     ['Potatisgratäng, rotfruktsgratäng'],
