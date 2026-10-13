@@ -135,7 +135,7 @@ docker compose logs -f
 
 Your data lives in `./data` and is kept when the image is updated. When a new version changes how data is stored, the app migrates the database automatically on startup, before it serves any requests. Each migration runs once, inside a transaction; if one fails, nothing is changed and the container stops with an error.
 
-To stay on a specific version instead of `latest`, set the image tag, e.g. `ghcr.io/socawi-ai/matschema:v0.4.0`. Every published build is also tagged `sha-<commit>`.
+To stay on a specific version instead of `latest`, set the image tag, e.g. `ghcr.io/socawi-ai/matschema:v0.5.0`. Every published build is also tagged `sha-<commit>`.
 
 ### Restoring a backup
 
