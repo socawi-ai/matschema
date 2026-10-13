@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Matschema</title>
+    <script>
+      (function () {
+        let saved = null;
+        try { saved = localStorage.getItem('matschema-theme'); } catch (_err) {}
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', saved || (prefersDark ? 'dark' : 'light'));
+      })();
+    </script>
+    <link rel="preload" href="/fonts/fraunces-latin-full-normal.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="/frontend-ny.css" />
+  </head>
+  <body>
+    <%
+      const shortDate = (iso) => { const [, m, d] = String(iso || '').split('-'); return d ? `${Number(d)}/${Number(m)}` : ''; };
+      const isPlaceholder = (entry) => !entry.mealId && (entry.mealName === 'Rester' || entry.mealName === 'Ej schemalagd ännu');
+      const allEntries = weeks.flatMap((week) => week.entries);
+      const todayIndex = allEntries.findIndex((entry) => entry.date === today);
+      const tonight = allEntries[todayIndex];
+      const tomorrow = todayIndex >= 0 ? allEntries[todayIndex + 1] : null;
+      const marks = (entry) => [
+        entry.isFish ? ['fish', '🐟', 'Fisk'] : null,
+        entry.isVegetarian ? ['veg', '🥕', 'Vegetariskt'] : null,
+        entry.isSpecial ? ['special', '⭐', 'Special'] : null,
+        entry.isDeal ? ['deal', '🏷', 'Erbjudande'] : null
+      ].filter(Boolean);
+      // A meal name: a button for the ingredients when there are any.
+      const mealName = (entry, className = '') => entry.hasIngredients
+        ? `<button type="button" class="meal ${className}" data-meal-id="${escapeHtml(entry.mealId)}">${escapeHtml(entry.mealName)}</button>`
+        : `<span class="meal ${className} ${isPlaceholder(entry) ? 'is-placeholder' : ''}">${escapeHtml(entry.mealName)}</span>`;
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+      }
+    %>
+
+    <div class="grain" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="brand" href="/frontend/ny">Matschema</a>
+      <nav class="topbar-actions">
+        <button type="button" id="themeToggle" class="pill" aria-label="Byt färgtema">🌙 Mörkt läge</button>
+        <a class="pill" href="/auth/login">Admin</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="intro reveal">
+        <p class="eyebrow">Vecka <%= weeks[0].weekNumber %> · <%= tonight ? tonight.day.toLowerCase() : '' %> <%= shortDate(today) %></p>
+        <h1>Veckans middagar</h1>
+
+        <% if (tonight) { %>
+          <div class="now-wrap">
+          <div class="now-glow" aria-hidden="true"></div>
+          <div class="now">
+            <div class="now-item now-tonight">
+              <span class="now-label">Ikväll</span>
+              <%- mealName(tonight, 'now-meal') %>
+            </div>
+            <% if (tomorrow) { %>
+              <div class="now-item">
+                <span class="now-label">Imorgon</span>
+                <%- mealName(tomorrow, 'now-meal') %>
+              </div>
+            <% } %>
+          </div>
+          </div>
+        <% } %>
+      </section>
+
+      <% if (shopping) { %>
+        <details class="shopping reveal <%= shopping.prominent ? 'is-prominent' : '' %>" style="--d: 1">
+          <summary>
+            <span class="shopping-icon" aria-hidden="true">🛒</span>
+            <span class="shopping-title">
+              <% if (shopping.prominent) { %>
+                Handla på <strong><%= shopping.storeName %></strong>
+              <% } else { %>
+                Handlat på <strong><%= shopping.storeName %></strong>
+              <% } %>
+              <small>för <%= shopping.periodLabel %> · <%= shopping.dealCount %> <%= shopping.dealCount === 1 ? 'erbjudande' : 'erbjudanden' %></small>
+            </span>
+            <span class="shopping-toggle" aria-hidden="true"></span>
+          </summary>
+          <div class="shopping-body">
+            <% if (!shopping.groups.length) { %>
+              <p class="shopping-empty">Inga erbjudanden på planerade rätter just nu.</p>
+            <% } %>
+            <% shopping.groups.forEach(function(group) { %>
+              <div class="shopping-group">
+                <h3><%= group.emoji %> <%= group.label %></h3>
+                <ul>
+                  <% group.deals.forEach(function(deal) { %>
+                    <li>
+                      <div class="shopping-line">
+                        <span class="shopping-name"><%= deal.name %><% if (deal.extra) { %> <small><%= deal.extra %></small><% } %></span>
+                        <span class="shopping-price"><%= deal.info[0] %></span>
+                      </div>
+                      <% if (deal.info.length > 1) { %><p class="shopping-info"><%= deal.info.slice(1).join(' · ') %></p><% } %>
+                      <p class="shopping-for">→ <%= deal.meals.map((m) => `${m.name} (${m.days.join(', ')})`).join(', ') %></p>
+                    </li>
+                  <% }) %>
+                </ul>
+              </div>
+            <% }) %>
+          </div>
+        </details>
+      <% } %>
+
+      <section class="weeks">
+        <% weeks.forEach(function(week, weekIndex) { %>
+          <article class="week reveal <%= weekIndex === 0 ? 'is-current' : '' %>" style="--d: <%= weekIndex + 2 %>">
+            <header class="week-head">
+              <h2>Vecka <%= week.weekNumber %></h2>
+              <span class="week-tag"><%= weekIndex === 0 ? 'Denna vecka' : weekIndex === 1 ? 'Nästa vecka' : 'Om två veckor' %></span>
+              <p class="week-range"><%= shortDate(week.entries[0].date) %>–<%= shortDate(week.entries[6].date) %></p>
+            </header>
+            <ul class="days">
+              <% week.entries.forEach(function(entry) {
+                   const isToday = entry.date === today;
+                   const isPast = entry.date < today; %>
+                <li class="day <%= isToday ? 'is-today' : '' %> <%= isPast ? 'is-past' : '' %>">
+                  <span class="day-name">
+                    <%= entry.day.slice(0, 3) %>
+                    <small><%= isToday ? 'Idag' : shortDate(entry.date) %></small>
+                  </span>
+                  <%- mealName(entry) %>
+                  <span class="day-marks">
+                    <% marks(entry).forEach(function(m) { %><span class="dot dot-<%= m[0] %>" title="<%= m[2] %>"><%= m[1] %></span><% }) %>
+                  </span>
+                </li>
+              <% }) %>
+            </ul>
+          </article>
+        <% }) %>
+      </section>
+
+      <p class="legend">
+        <span><span class="dot dot-fish">🐟</span> Fisk</span>
+        <span><span class="dot dot-veg">🥕</span> Vegetariskt</span>
+        <span><span class="dot dot-special">⭐</span> Special</span>
+        <% if (shopping) { %><span><span class="dot dot-deal">🏷</span> Erbjudande</span><% } %>
+      </p>
+
+      <footer class="footer">
+        <span>Matschema v<%= appVersion %></span>
+        <a href="/frontend">Klassisk vy</a>
+      </footer>
+    </main>
+
+    <dialog id="ingredientsDialog" class="sheet">
+      <p class="eyebrow">Ingredienser</p>
+      <h3 id="ingredientsTitle"></h3>
+      <ul id="ingredientsList" class="sheet-list"></ul>
+      <div id="mealDeals" hidden>
+        <p class="eyebrow eyebrow-deal">🏷 Erbjudande hos <%= shopping ? shopping.storeName : '' %></p>
+        <ul id="mealDealsList" class="sheet-deals"></ul>
+      </div>
+      <form method="dialog">
+        <button class="pill pill-solid">Stäng</button>
+      </form>
+    </dialog>
+
+    <script type="application/json" id="meal-data"><%- JSON.stringify(plannedMeals).replace(/</g, '\\u003c') %></script>
+    <script src="/frontend.js"></script>
+  </body>
+</html>

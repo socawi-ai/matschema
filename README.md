@@ -286,13 +286,15 @@ The 📅 Schema tab shows when it last planned, for which store, and which days 
 - 🐟, 🥕 and ⭐ mark fish, vegetarian and special meals, and 🏷 meals whose main ingredient is on offer,
 - tapping a meal shows its ingredients, and for 🏷 meals the offer.
 
+A new design is being tried out at `/frontend/ny` (**✨ Ny vy** on the regular page): the same schedule and shopping list, with self-hosted fonts and a calmer, more designed look. The regular page links to it, and it links back.
+
 ### Shopping list
 
 When the plan was made with offers, a **🛒 Handla på …** card at the top shows the store to go to and the offers to buy. The offers are grouped by main ingredient (🥩 Köttfärs, 🍗 Kyckling, 🐟 Fisk …). Each offer shows its price, compare price, member-only price and purchase limits, how long it's valid, and which meals and days it's for.
 
 - **Which store.** The store the plan was made for, by automatic planning or by *Fyll tomma dagar* / *Planera om med erbjudanden*. That store is shown even if another one has better offers later in the week, so the list always matches the schedule.
 - **Which offers.** Only offers for meals planned from today to the end of the period, at that store, and still valid. Other offers stay in the admin.
-- **When.** Monday–Thursday, once this week's plan is made, the card is open. Otherwise (Friday–Sunday, or Monday before the new offers are in) it shrinks to *Handlat för … på …*. Tap it to see the list.
+- **When.** The card starts closed, showing the store and the number of offers; tap it to see the list. Monday–Thursday, once this week's plan is made, it's highlighted as *Handla på …*. Otherwise (Friday–Sunday, or Monday before the new offers are in) it's toned down as *Handlat för … på …*.
 - **No card.** If the plan was made without offers, or its period is over, there's no card. A plan made before this feature was added doesn't count until the schedule is filled or re-planned again.
 
 Only the finished list is public. Settings, store choice and all other offers stay behind the admin login. If `/frontend` is reachable from the internet, keep in mind that the list shows some of the chains' offers (see [Grocery offers](#grocery-offers)).

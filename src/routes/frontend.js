@@ -59,6 +59,11 @@ router.get('/', async (req, res) => {
   res.render('frontend', await getFrontendData());
 });
 
+// Preview of a new, more designed public page; same data as '/'.
+router.get('/ny', async (req, res) => {
+  res.render('frontend-ny', await getFrontendData());
+});
+
 router.get('/ha', async (req, res) => {
   res.render('frontend-ha', await getFrontendData());
 });

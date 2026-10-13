@@ -1,0 +1,825 @@
+/* The new public schedule (/frontend/ny). Self-contained – it doesn't use
+   styles.css – but keeps its colour scheme (neutral greys, blue accent),
+   with complementary accents for the meal types. Fonts are self-hosted
+   (the page's CSP only allows the app's own files); see fonts/LICENSE.txt. */
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/fraunces-latin-full-normal.woff2') format('woff2-variations');
+}
+
+@font-face {
+  font-family: 'DM Sans';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 1000;
+  src: url('/fonts/dm-sans-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+:root {
+  /* The app's scheme (styles.css). */
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #18181b;
+  --text-muted: #6b7280;
+  --accent: #2563eb;
+  --accent-text: #1d4ed8;
+  --accent-soft: #dbeafe;
+  /* Complements: amber opposite the blue, with emerald, sky and coral. */
+  --amber: #d97706;
+  --amber-soft: #fef3c7;
+  --emerald: #047857;
+  --emerald-soft: #d1fae5;
+  --sky: #0284c7;
+  --sky-soft: #e0f2fe;
+  --coral: #c2410c;
+  --coral-soft: #ffedd5;
+  --shadow: 0 1px 2px rgba(24, 24, 27, 0.04), 0 12px 32px -18px rgba(24, 24, 27, 0.18);
+  --serif: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: #121212;
+  --surface: #1c1c1e;
+  --border: #2e2e30;
+  --text: #f2f2f2;
+  --text-muted: #8e8e93;
+  --accent: #2563eb;
+  --accent-text: #60a5fa;
+  --accent-soft: #1e3a68;
+  --amber: #fbbf24;
+  --amber-soft: rgba(251, 191, 36, 0.14);
+  --emerald: #34d399;
+  --emerald-soft: rgba(52, 211, 153, 0.14);
+  --sky: #38bdf8;
+  --sky-soft: rgba(56, 189, 248, 0.14);
+  --coral: #fb923c;
+  --coral-soft: rgba(251, 146, 60, 0.14);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-x: hidden;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+/* Paper grain over everything. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+[data-theme='dark'] .grain {
+  mix-blend-mode: screen;
+  opacity: 0.045;
+}
+
+main,
+.topbar {
+  width: min(1180px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 0;
+}
+
+.brand {
+  font-family: var(--serif);
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.pill:hover,
+.pill:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.pill-solid {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.pill-solid:hover,
+.pill-solid:focus-visible {
+  color: #fff;
+  filter: brightness(1.08);
+}
+
+.eyebrow {
+  margin: 0 0 0.5rem;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent-text);
+}
+
+/* ---------- Intro: centred, tonight and tomorrow side by side ---------- */
+
+.intro {
+  padding: 1.75rem 0 1.5rem;
+  text-align: center;
+}
+
+h1 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  font-variation-settings: 'opsz' 144;
+}
+
+/* A slowly spinning colour halo behind tonight and tomorrow. */
+.now-wrap {
+  position: relative;
+  isolation: isolate;
+  width: min(640px, 100%);
+  margin: 1.5rem auto 0;
+}
+
+.now-glow {
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  overflow: hidden;
+  border-radius: 26px;
+  filter: blur(18px);
+  opacity: 0.22;
+}
+
+.now-glow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  translate: -50% -50%;
+  background: conic-gradient(from 0deg, var(--accent), var(--emerald), var(--amber), var(--coral), var(--accent));
+  animation: spin 24s linear infinite;
+}
+
+[data-theme='dark'] .now-glow {
+  opacity: 0.18;
+}
+
+.now {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.now-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 1rem 1.2rem;
+  min-width: 0;
+}
+
+.now-item + .now-item {
+  border-left: 1px solid var(--border);
+}
+
+.now-tonight {
+  background: var(--accent-soft);
+}
+
+.now-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.now-tonight .now-label {
+  color: var(--accent-text);
+}
+
+.meal.now-meal {
+  max-width: 100%;
+  text-align: center;
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+/* ---------- Shopping: a slim bar, closed by default ---------- */
+
+.shopping {
+  width: min(760px, 100%);
+  margin: 0 auto 1.75rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.shopping.is-prominent {
+  border-color: color-mix(in srgb, var(--coral) 45%, var(--border));
+}
+
+.shopping summary {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.75rem 1rem;
+  list-style: none;
+  cursor: pointer;
+}
+
+.shopping summary::-webkit-details-marker {
+  display: none;
+}
+
+.shopping-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  background: var(--coral-soft);
+}
+
+.shopping-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.98rem;
+}
+
+.shopping-title strong {
+  color: var(--coral);
+}
+
+.shopping-title small {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.shopping-toggle {
+  position: relative;
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+
+.shopping-toggle::before,
+.shopping-toggle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.65rem;
+  height: 2px;
+  margin: -1px 0 0 -0.325rem;
+  border-radius: 2px;
+  background: var(--text);
+}
+
+.shopping-toggle::after {
+  transform: rotate(90deg);
+  transition: transform 0.3s var(--ease);
+}
+
+.shopping[open] .shopping-toggle::after {
+  transform: rotate(0deg);
+}
+
+.shopping summary:hover .shopping-toggle {
+  background: var(--coral-soft);
+}
+
+.shopping-body {
+  padding: 0.25rem 1.1rem 1rem;
+  border-top: 1px dashed var(--border);
+  animation: fade-up 0.4s var(--ease) both;
+}
+
+.shopping-group {
+  margin-top: 0.9rem;
+}
+
+.shopping-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 0.2rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.shopping-group h3::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border);
+}
+
+.shopping-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.shopping-group li {
+  padding: 0.5rem 0;
+}
+
+.shopping-group li + li {
+  border-top: 1px dashed var(--border);
+}
+
+.shopping-line {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+}
+
+.shopping-line::after {
+  content: '';
+  order: 1;
+  flex: 1;
+  min-width: 1rem;
+  border-bottom: 2px dotted var(--border);
+}
+
+.shopping-name {
+  font-weight: 700;
+}
+
+.shopping-name small {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.shopping-price {
+  order: 2;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--coral);
+  white-space: nowrap;
+}
+
+.shopping-info,
+.shopping-for,
+.shopping-empty {
+  margin: 0.1rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.shopping-empty {
+  margin-top: 0.8rem;
+}
+
+.shopping-for {
+  color: var(--emerald);
+  font-weight: 600;
+}
+
+/* ---------- Weeks: the main thing ---------- */
+
+.weeks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.25rem;
+}
+
+.week {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.week.is-current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), var(--shadow);
+}
+
+.week-head {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 0 0.75rem;
+  padding: 1.1rem 1.2rem 0.9rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.week.is-current .week-head {
+  background: var(--accent-soft);
+  border-bottom-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.week-head h2 {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.week-tag {
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.week.is-current .week-tag {
+  background: var(--accent);
+  color: #fff;
+}
+
+.week-range {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.days {
+  margin: 0;
+  padding: 0.4rem 0.6rem 0.6rem;
+  list-style: none;
+}
+
+.day {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 3.3rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 12px;
+  transition: background 0.2s;
+}
+
+.day + .day {
+  box-shadow: inset 0 1px 0 var(--border);
+}
+
+.day:hover {
+  background: var(--bg);
+}
+
+.day.is-past {
+  opacity: 0.45;
+}
+
+.day.is-today,
+.day.is-today:hover {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+.day.is-today + .day {
+  box-shadow: none;
+}
+
+.day-name {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.day-name small {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-muted);
+}
+
+.day.is-today .day-name small {
+  color: #fff;
+  font-weight: 700;
+}
+
+.meal {
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 1.05rem;
+  font-weight: 500;
+  line-height: 1.2;
+  font-variation-settings: 'opsz' 24;
+}
+
+button.meal {
+  cursor: pointer;
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-size: 0% 2px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.35s var(--ease);
+}
+
+button.meal:hover,
+button.meal:focus-visible {
+  background-size: 100% 2px;
+  outline: none;
+}
+
+.day.is-today button.meal {
+  background-image: linear-gradient(#fff, #fff);
+}
+
+.is-placeholder {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.day.is-today .is-placeholder {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.day-marks {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.dot {
+  display: inline-grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  font-size: 0.72rem;
+}
+
+.dot-fish { background: var(--sky-soft); }
+.dot-veg { background: var(--emerald-soft); }
+.dot-special { background: var(--amber-soft); }
+.dot-deal { background: var(--coral-soft); }
+
+.day.is-today .dot {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.25rem;
+  margin: 1.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* ---------- Footer ---------- */
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 2rem 0 2.5rem;
+  padding-top: 1.1rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.footer a {
+  color: inherit;
+}
+
+/* ---------- Ingredients sheet ---------- */
+
+.sheet {
+  width: min(440px, calc(100% - 32px));
+  max-height: 85vh;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.45);
+}
+
+.sheet[open] {
+  animation: sheet-in 0.4s var(--ease) both;
+}
+
+.sheet::backdrop {
+  background: rgba(15, 18, 25, 0.4);
+  backdrop-filter: blur(4px);
+  animation: fade 0.25s ease both;
+}
+
+.sheet h3 {
+  margin: 0 0 0.9rem;
+  font-family: var(--serif);
+  font-size: 1.7rem;
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.eyebrow-deal {
+  color: var(--coral);
+}
+
+.sheet-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0 0 1.3rem;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-list li {
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.sheet-deals {
+  margin: 0 0 1.3rem;
+  padding: 0;
+  list-style: none;
+}
+
+.sheet-deals li {
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  background: var(--coral-soft);
+  font-size: 0.9rem;
+}
+
+.sheet-deals li + li {
+  margin-top: 0.4rem;
+}
+
+.sheet-deals .shopping-info {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+/* ---------- Motion ---------- */
+
+.reveal {
+  animation: fade-up 0.6s var(--ease) backwards;
+  animation-delay: calc(var(--d, 0) * 0.07s);
+}
+
+/* Only a `from`, so elements end at their own opacity (past days stay dimmed). */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+}
+
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(24px); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  .sheet::backdrop {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 980px) {
+  .weeks {
+    grid-template-columns: 1fr;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar .pill {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.78rem;
+  }
+
+  .now {
+    grid-template-columns: 1fr;
+  }
+
+  .now-item + .now-item {
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
+}

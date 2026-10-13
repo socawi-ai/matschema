@@ -28,13 +28,14 @@
         <div class="actions">
           <button type="button" id="themeToggle" class="button secondary" aria-label="Byt färgtema">🌙 Mörkt läge</button>
           <a class="button secondary" href="/auth/login">Admin</a>
+          <a class="button secondary" href="/frontend/ny">✨ Ny vy</a>
         </div>
       </header>
 
       <% if (shopping) { %>
-        <!-- Prominent before the shop (Mon–Thu, plan from this week), toned down otherwise. -->
+        <!-- Closed until tapped; prominent before the shop (Mon–Thu, plan from this week), toned down otherwise. -->
         <section class="shopping-card <%= shopping.prominent ? '' : 'shopping-quiet' %>">
-          <details <%= shopping.prominent ? 'open' : '' %>>
+          <details>
             <summary>
               <% if (shopping.prominent) { %>
                 <span class="shopping-title">🛒 Handla på <strong><%= shopping.storeName %></strong></span>
