@@ -23,13 +23,49 @@
         <div>
           <p class="frontend-eyebrow">Måltidsplanering</p>
           <h1>Matschema <span class="app-version">v<%= appVersion %></span></h1>
-          <p class="frontend-lead">Den här veckan och två veckor framåt. Tryck på en rätt för att se ingredienserna.</p>
+          <p class="frontend-lead">Den här veckan och två veckor framåt. Tryck på en rätt för att se ingredienserna. 🏷 betyder att huvudråvaran är på erbjudande.</p>
         </div>
         <div class="actions">
           <button type="button" id="themeToggle" class="button secondary" aria-label="Byt färgtema">🌙 Mörkt läge</button>
           <a class="button secondary" href="/auth/login">Admin</a>
         </div>
       </header>
+
+      <% if (shopping) { %>
+        <!-- Prominent before the shop (Mon–Thu, plan from this week), toned down otherwise. -->
+        <section class="shopping-card <%= shopping.prominent ? '' : 'shopping-quiet' %>">
+          <details <%= shopping.prominent ? 'open' : '' %>>
+            <summary>
+              <% if (shopping.prominent) { %>
+                <span class="shopping-title">🛒 Handla på <strong><%= shopping.storeName %></strong></span>
+                <span class="shopping-meta">för <%= shopping.periodLabel %> · <%= shopping.dealCount %> <%= shopping.dealCount === 1 ? 'erbjudande' : 'erbjudanden' %></span>
+              <% } else { %>
+                <span class="shopping-title">🛒 Handlat för <%= shopping.periodLabel %> på <%= shopping.storeName %></span>
+                <span class="shopping-meta"><%= shopping.dealCount %> <%= shopping.dealCount === 1 ? 'erbjudande' : 'erbjudanden' %></span>
+              <% } %>
+            </summary>
+            <% if (!shopping.groups.length) { %>
+              <p class="shopping-empty">Inga erbjudanden på planerade rätter just nu.</p>
+            <% } %>
+            <div class="shopping-groups">
+              <% shopping.groups.forEach(function(group) { %>
+                <div class="shopping-group">
+                  <h3><%= group.emoji %> <%= group.label %></h3>
+                  <ul>
+                    <% group.deals.forEach(function(deal) { %>
+                      <li>
+                        <strong><%= deal.name %></strong><% if (deal.extra) { %> <span class="shopping-extra"><%= deal.extra %></span><% } %>
+                        <span class="shopping-info"><%= deal.info.join(' · ') %></span>
+                        <span class="shopping-meals">→ <%= deal.meals.map((m) => `${m.name} (${m.days.join(', ')})`).join(', ') %></span>
+                      </li>
+                    <% }) %>
+                  </ul>
+                </div>
+              <% }) %>
+            </div>
+          </details>
+        </section>
+      <% } %>
 
       <section class="frontend-weeks-grid">
         <% weeks.forEach(function(week, weekIndex) { %>
@@ -55,13 +91,13 @@
                   </span>
                   <span class="frontend-meal-wrap">
                     <% if (entry.hasIngredients) { %>
-                      <button type="button" class="frontend-meal-button" data-meal-id="<%= entry.mealId %>" title="Visa ingredienser">
+                      <button type="button" class="frontend-meal-button" data-meal-id="<%= entry.mealId %>" title="<%= entry.isDeal ? 'Visa ingredienser och erbjudande' : 'Visa ingredienser' %>">
                         <%= entry.mealName %>
                       </button>
                     <% } else { %>
                       <span class="frontend-plain-meal <%= isPlaceholder ? 'frontend-meal-placeholder' : '' %>"><%= entry.mealName %></span>
                     <% } %>
-                    <span class="frontend-meal-marks" aria-hidden="true"><%= entry.isFish ? '🐟' : '' %><%= entry.isVegetarian ? '🥕' : '' %><%= entry.isSpecial ? '⭐' : '' %></span>
+                    <span class="frontend-meal-marks" aria-hidden="true"><%= entry.isFish ? '🐟' : '' %><%= entry.isVegetarian ? '🥕' : '' %><%= entry.isSpecial ? '⭐' : '' %><%= entry.isDeal ? '🏷' : '' %></span>
                   </span>
                 </li>
               <% }) %>
@@ -75,6 +111,10 @@
       <p class="frontend-eyebrow">Ingredienser</p>
       <h3 id="ingredientsTitle"></h3>
       <ul id="ingredientsList"></ul>
+      <div id="mealDeals" hidden>
+        <p class="frontend-eyebrow">🏷 Erbjudande hos <%= shopping ? shopping.storeName : '' %></p>
+        <ul id="mealDealsList"></ul>
+      </div>
       <form method="dialog">
         <button class="button secondary">Stäng</button>
       </form>

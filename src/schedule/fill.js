@@ -2,13 +2,17 @@
 // automatic weekly planning (see auto.js).
 
 const { getDealStores } = require('../data/deals');
-const { getMeals, getRules, updateSchedules } = require('../data/store');
+const { getMeals, getRules, saveSetting, updateSchedules } = require('../data/store');
 const { getDealPlanning } = require('../deals/meal-deals');
 const { clearForReplan, generateWeeks, mealCategory, startOfWeek, toISODate } = require('../utils/scheduler');
 const { normalizeRules } = require('../utils/rules');
 
 // Short Swedish date: 2026-10-11 -> "11/10".
 const shortDate = (date) => `${date.getDate()}/${date.getMonth() + 1}`;
+
+const WEEKDAYS = ['sön', 'mån', 'tis', 'ons', 'tor', 'fre', 'lör'];
+// Short Swedish weekday and date: "mån 19/10".
+const dayText = (date) => `${WEEKDAYS[date.getDay()]} ${shortDate(date)}`;
 
 // The deal period as "16/10–1/11" (its end is exclusive).
 const periodLabel = (period) => `${shortDate(period.start)}–${shortDate(new Date(period.end.getTime() - 1))}`;
@@ -43,6 +47,10 @@ function rulesError(meals, rules) {
 // first in the deal period (see generateWeekSchedule), unless that's turned
 // off in the rules. `chosenStore` overrides the store chosen in the rules
 // ('auto' = the one with deals for the most meals).
+//
+// The store and period the plan was made for are saved as the setting
+// 'dealPlan' ({ storeId, from, to, plannedAt }, or null without deals), for
+// the public shopping list (see deals/shopping.js).
 //
 // Returns { ok: false, error } or { ok: true, message, storeName }.
 async function fillSchedule({ replan = false, scope = 'generated', chosenStore, now = new Date() } = {}) {
@@ -83,6 +91,7 @@ async function fillSchedule({ replan = false, scope = 'generated', chosenStore, 
 
   const periodText = periodLabel(planning.period);
   const store = preference ? (await getDealStores()).find((s) => s.id === planning.storeId) : null;
+  await saveSetting('dealPlan', store ? { storeId: store.id, from, to, plannedAt: now.toISOString() } : null);
   const storeText = store ? ` med erbjudanden från ${store.name}` : '';
   const result = (message) => ({ ok: true, message, storeName: store ? store.name : null });
   if (replan && scope === 'all') {
@@ -94,4 +103,4 @@ async function fillSchedule({ replan = false, scope = 'generated', chosenStore, 
   return result(preference ? `Tomma dagar har fyllts. Rätter${storeText} prioriterades ${periodText}.` : 'Tomma dagar har fyllts.');
 }
 
-module.exports = { fillSchedule, periodLabel, rulesError, shortDate };
+module.exports = { dayText, fillSchedule, periodLabel, rulesError, shortDate };

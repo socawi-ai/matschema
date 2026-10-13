@@ -1,5 +1,5 @@
 // Shared by the public schedule (/frontend) and the Home Assistant view
-// (/frontend/ha): theme toggle, ingredients dialog, and keeping the page
+// (/frontend/ha): theme toggle, ingredients and offers dialog, and keeping the page
 // from going stale when it's left open.
 (function () {
   // ---------- Theme ----------
@@ -49,6 +49,25 @@
           return item;
         })
       );
+      // The meal's offers at the store the plan was made for, if any.
+      const dealsBox = document.getElementById('mealDeals');
+      const deals = meal.deals || [];
+      if (dealsBox) {
+        dealsBox.hidden = !deals.length;
+        document.getElementById('mealDealsList').replaceChildren(
+          ...deals.map((deal) => {
+            const item = document.createElement('li');
+            const name = document.createElement('strong');
+            name.textContent = deal.name;
+            item.append(name, deal.extra ? ` ${deal.extra}` : '');
+            const info = document.createElement('span');
+            info.className = 'shopping-info';
+            info.textContent = deal.info.join(' · ');
+            item.append(info);
+            return item;
+          })
+        );
+      }
       dialog.showModal();
     });
 

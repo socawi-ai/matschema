@@ -23,8 +23,8 @@ It runs as a single Docker container with one SQLite database. The interface is 
 
 **Viewing**
 
-- **Public schedule** at `/frontend`: three weeks, today highlighted, meal-type markers, ingredients on tap.
-- **Home Assistant view** at `/frontend/ha`: a compact schedule for an iframe card.
+- **Public schedule** at `/frontend`: three weeks, today highlighted, meal-type markers, ingredients on tap, and a shopping list: which store to go to and which offers to buy for which meals.
+- **Home Assistant view** at `/frontend/ha`: a compact schedule for an iframe card, with the store to shop at.
 - **Light and dark theme.**
 
 ## Installation
@@ -283,14 +283,25 @@ The 📅 Schema tab shows when it last planned, for which store, and which days 
 `/frontend` shows this week and the next two:
 
 - today is highlighted,
-- 🐟, 🥕 and ⭐ mark fish, vegetarian and special meals,
-- tapping a meal shows its ingredients.
+- 🐟, 🥕 and ⭐ mark fish, vegetarian and special meals, and 🏷 meals whose main ingredient is on offer,
+- tapping a meal shows its ingredients, and for 🏷 meals the offer.
+
+### Shopping list
+
+When the plan was made with offers, a **🛒 Handla på …** card at the top shows the store to go to and the offers to buy. The offers are grouped by main ingredient (🥩 Köttfärs, 🍗 Kyckling, 🐟 Fisk …). Each offer shows its price, compare price, member-only price and purchase limits, how long it's valid, and which meals and days it's for.
+
+- **Which store.** The store the plan was made for, by automatic planning or by *Fyll tomma dagar* / *Planera om med erbjudanden*. That store is shown even if another one has better offers later in the week, so the list always matches the schedule.
+- **Which offers.** Only offers for meals planned from today to the end of the period, at that store, and still valid. Other offers stay in the admin.
+- **When.** Monday–Thursday, once this week's plan is made, the card is open. Otherwise (Friday–Sunday, or Monday before the new offers are in) it shrinks to *Handlat för … på …*. Tap it to see the list.
+- **No card.** If the plan was made without offers, or its period is over, there's no card. A plan made before this feature was added doesn't count until the schedule is filled or re-planned again.
+
+Only the finished list is public. Settings, store choice and all other offers stay behind the admin login. If `/frontend` is reachable from the internet, keep in mind that the list shows some of the chains' offers (see [Grocery offers](#grocery-offers)).
 
 A page left open, such as a kitchen tablet, reloads itself after midnight or after 30 minutes.
 
 ## Home Assistant
 
-`/frontend/ha` is a compact view for an iframe card on a Home Assistant dashboard. It highlights today, shows ingredients on tap, uses the dark theme by default, and reloads every 5 minutes.
+`/frontend/ha` is a compact view for an iframe card on a Home Assistant dashboard. It highlights today, shows ingredients and offers on tap, uses the dark theme by default, and reloads every 5 minutes. When the plan was made with offers, a line at the top shows the store and the number of offers (*🛒 Willys Östersund · 7 erbjudanden*), and 🏷 marks meals on offer.
 
 Embedding is blocked by default. Allow your Home Assistant address:
 

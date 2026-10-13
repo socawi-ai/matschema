@@ -142,6 +142,7 @@ module.exports = {
   dealMatchesIngredient,
   dealPeriod,
   dealsForMeal,
+  getCurrentMainDeals,
   getDealPlanning,
   ingredientCategory,
   mainIngredientCategories,

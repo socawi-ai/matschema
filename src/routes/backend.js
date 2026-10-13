@@ -32,7 +32,7 @@ const { getCategoryOverrides } = require('../data/deals');
 const { nameKey } = require('../data/deal-name');
 const { version: appVersion } = require('../../package.json');
 const { LIMITS, secret, text, textList } = require('../utils/input');
-const { fillSchedule, periodLabel, shortDate } = require('../schedule/fill');
+const { dayText, fillSchedule, periodLabel, shortDate } = require('../schedule/fill');
 
 const router = express.Router();
 
@@ -81,12 +81,11 @@ async function getCurrentRules() {
   return normalizeRules(await getRules());
 }
 
-const WEEKDAYS = ['sön', 'mån', 'tis', 'ons', 'tor', 'fre', 'lör'];
 // "mån 13/10 kl. 18:07"
 function whenText(iso) {
   const date = new Date(iso);
   const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-  return `${WEEKDAYS[date.getDay()]} ${shortDate(date)} kl. ${time}`;
+  return `${dayText(date)} kl. ${time}`;
 }
 
 // Lines about the automatic weekly planning for the schedule tab, or null
