@@ -8,17 +8,14 @@ const {
   getMeals,
   getRules,
   getSchedules,
+  getSetting,
   removeSchedulesBeforeWeekStart,
   saveRules,
   updateMeal,
-  updateScheduleEntry,
-  updateSchedules
+  updateScheduleEntry
 } = require('../data/store');
 const {
-  clearForReplan,
-  generateWeeks,
   getISOWeekNumber,
-  mealCategory,
   mealsUsedNearWeek,
   pickRandomMealForDay,
   startOfWeek,
@@ -35,6 +32,7 @@ const { getCategoryOverrides } = require('../data/deals');
 const { nameKey } = require('../data/deal-name');
 const { version: appVersion } = require('../../package.json');
 const { LIMITS, secret, text, textList } = require('../utils/input');
+const { fillSchedule, periodLabel, shortDate } = require('../schedule/fill');
 
 const router = express.Router();
 
@@ -83,8 +81,35 @@ async function getCurrentRules() {
   return normalizeRules(await getRules());
 }
 
-// Short Swedish date for messages: 2026-10-11 -> "11/10".
-const shortDate = (date) => `${date.getDate()}/${date.getMonth() + 1}`;
+const WEEKDAYS = ['sön', 'mån', 'tis', 'ons', 'tor', 'fre', 'lör'];
+// "mån 13/10 kl. 18:07"
+function whenText(iso) {
+  const date = new Date(iso);
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  return `${WEEKDAYS[date.getDay()]} ${shortDate(date)} kl. ${time}`;
+}
+
+// Lines about the automatic weekly planning for the schedule tab, or null
+// when it's off (see schedule/auto.js).
+async function autoPlanStatus(rules) {
+  if (!rules.autoPlan) return null;
+  const state = (await getSetting('autoPlan')) || {};
+  const lines = [];
+  if (state.plannedAt && state.plannedError) {
+    lines.push(`Automatisk planering ${whenText(state.plannedAt)} gick inte: ${state.plannedError}`);
+  } else if (state.plannedAt) {
+    const store = state.plannedStore ? ` med erbjudanden från ${state.plannedStore}` : '';
+    lines.push(`Planerades automatiskt ${whenText(state.plannedAt)}${store}.`);
+  }
+  if (state.plannedWeek !== toISODate(startOfWeek(new Date()))) {
+    lines.push('Planerar om måndag–torsdag när veckans erbjudanden har kommit, senast tisdag kl. 06.');
+  }
+  if (state.lockedAt) {
+    const lastDay = new Date(new Date(`${state.lockedUntil}T00:00:00`).getTime() - 1);
+    lines.push(`${state.lockedCount} dagar t.o.m. ${shortDate(lastDay)} markerades som handlade ${whenText(state.lockedAt)}.`);
+  }
+  return lines;
+}
 
 async function renderBackend(req, res, options = {}) {
   await removeSchedulesBeforeWeekStart(toISODate(startOfWeek(new Date())));
@@ -110,7 +135,7 @@ async function renderBackend(req, res, options = {}) {
     active: rules.prioritizeDeals,
     from: toISODate(planning.period.start),
     to: toISODate(planning.period.end),
-    periodLabel: `${shortDate(planning.period.start)}–${shortDate(new Date(planning.period.end.getTime() - 1))}`,
+    periodLabel: periodLabel(planning.period),
     chosenStore: rules.shoppingStore,
     storeId: planning.storeId,
     storeName: planning.storeId ? storeName(planning.storeId) : null,
@@ -142,6 +167,7 @@ async function renderBackend(req, res, options = {}) {
     rules,
     schedules,
     dealPlanning,
+    autoPlanStatus: await autoPlanStatus(rules),
     dealStores,
     deals: await getDealsForDisplay(),
     everydayCategories: EVERYDAY_CATEGORIES,
@@ -209,78 +235,16 @@ router.post('/meals/:mealId/delete', async (req, res) => {
 
 // --- Schedule ---
 
-// Fills the planning horizon. With `replan`, days in the deal period are
-// emptied first so they're planned again with the current deals: only
-// generated ('auto') days with scope 'generated', every day with scope 'all'
-// (see clearForReplan). Meals whose main ingredient is on offer are picked
-// first in the deal period (see generateWeekSchedule), unless that's turned
-// off in the rules.
-async function fillSchedule(req, res, { replan, scope = 'generated' }) {
-  const meals = await getMeals();
-  if (!meals.length) {
-    return fail(req, res, 400, 'Lägg till minst en måltid innan du fyller schemat.');
-  }
-
-  const rules = await getCurrentRules();
-
-  // Only require the meal types the current rules actually ask for.
-  // Special meals only count for special days (see generateWeekSchedule).
-  const hasCategory = (category) => meals.some((meal) => mealCategory(meal) === category);
-  const hasNonSpecial = meals.some((meal) => mealCategory(meal) !== 'special');
-
-  if (rules.fishMealsPerWeek > 0 && !hasCategory('fish')) {
-    return fail(req, res, 400, 'Reglerna kräver fisk, men det finns ingen fiskmåltid (utan ⭐) i databasen.');
-  }
-  if (rules.vegetarianMealsPerWeek > 0 && !hasCategory('vegetarian')) {
-    return fail(req, res, 400, 'Reglerna kräver vegetariskt, men det finns ingen vegetarisk måltid (utan ⭐) i databasen.');
-  }
-  if (rules.specialDays.length > 0 && !hasCategory('special')) {
-    return fail(req, res, 400, 'Det finns specialdagar i reglerna men ingen specialmåltid i databasen.');
-  }
-  if (rules.specialDays.length < 7 && !hasNonSpecial) {
-    return fail(req, res, 400, 'Det krävs minst en vanlig (icke-special) måltid för övriga dagar.');
-  }
-
-  const planning = await getDealPlanning(meals, { shoppingStores: rules.shoppingStores, chosenStore: rules.shoppingStore });
-  const from = toISODate(planning.period.start);
-  const to = toISODate(planning.period.end);
-  const preference = rules.prioritizeDeals && planning.preferredMealIds.size
-    ? { mealIds: planning.preferredMealIds, from, to }
-    : null;
-
-  const firstWeekStart = startOfWeek(new Date());
-  const weekStarts = Array.from({ length: rules.planningHorizonWeeks }, (_, i) =>
-    new Date(firstWeekStart.getFullYear(), firstWeekStart.getMonth(), firstWeekStart.getDate() + i * 7)
-  );
-
-  // Read, plan and save in one transaction, so a day changed meanwhile isn't
-  // overwritten (see updateSchedules).
-  await updateSchedules((existingSchedules) => {
-    // Emptied days don't count as nearby meals for the other weeks either.
-    const weeks = existingSchedules.map((schedule) => ({ weekStart: schedule.weekStart, entries: schedule.entries }));
-    const knownWeeks = replan ? clearForReplan(weeks, { from, to }, scope) : weeks;
-    return generateWeeks(meals, rules, weekStarts, knownWeeks, preference).map((schedule) => {
-      const existingSchedule = existingSchedules.find((item) => item.weekStart === schedule.weekStart);
-      return existingSchedule ? { ...schedule, id: existingSchedule.id, createdAt: existingSchedule.createdAt } : schedule;
-    });
-  });
-
-  const periodText = `${shortDate(planning.period.start)}–${shortDate(new Date(planning.period.end.getTime() - 1))}`;
-  const store = (await getDealStores()).find((s) => s.id === planning.storeId);
-  const storeText = preference && store ? ` med erbjudanden från ${store.name}` : '';
-  if (replan && scope === 'all') {
-    return done(req, res, `Hela perioden ${periodText} är planerad om${storeText}.`);
-  }
-  if (replan) {
-    return done(req, res, `Genererade dagar ${periodText} är planerade om${storeText}. Dina egna val behölls.`);
-  }
-  return done(req, res, preference ? `Tomma dagar har fyllts. Rätter${storeText} prioriterades ${periodText}.` : 'Tomma dagar har fyllts.');
+// See fillSchedule; the messages and errors are shown as toasts.
+async function fill(req, res, options) {
+  const result = await fillSchedule(options);
+  return result.ok ? done(req, res, result.message) : fail(req, res, 400, result.error);
 }
 
-router.post('/schedule/generate', async (req, res) => fillSchedule(req, res, { replan: false }));
+router.post('/schedule/generate', async (req, res) => fill(req, res, { replan: false }));
 // scope: 'generated' (default) keeps the user's own choices, 'all' re-plans every day in the period.
 router.post('/schedule/replan', async (req, res) =>
-  fillSchedule(req, res, { replan: true, scope: text((req.body || {}).scope) === 'all' ? 'all' : 'generated' })
+  fill(req, res, { replan: true, scope: text((req.body || {}).scope) === 'all' ? 'all' : 'generated' })
 );
 
 // Changes a single day. `action` is one of:
@@ -408,7 +372,8 @@ router.post('/rules', async (req, res) => {
     specialDays: parseDaysInput(body.specialDays),
     vegetarianAllowedDays: parseDaysInput(body.vegetarianAllowedDays),
     sameSpecialAcrossSpecialDays: body.sameSpecialAcrossSpecialDays === 'on',
-    prioritizeDeals: body.prioritizeDeals === 'on'
+    prioritizeDeals: body.prioritizeDeals === 'on',
+    autoPlan: body.autoPlan === 'on'
   });
 
   await saveRules(rules);

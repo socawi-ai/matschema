@@ -13,7 +13,10 @@ const DEFAULT_RULES = {
   // is visited per shop: shoppingStore, or 'auto' for the one with deals
   // for the most meals.
   shoppingStores: ['willys:2120', 'ica:1003733', 'ica:1004224'],
-  shoppingStore: 'auto'
+  shoppingStore: 'auto',
+  // Re-plan with the new deals every week and lock the days bought for
+  // (see src/schedule/auto.js).
+  autoPlan: false
 };
 
 // Parses an integer and clamps it to [min, max]. Only falls back when the
@@ -44,6 +47,7 @@ function normalizeRules(rawRules) {
     : [...DEFAULT_RULES.vegetarianAllowedDays];
   rules.sameSpecialAcrossSpecialDays = Boolean(rules.sameSpecialAcrossSpecialDays);
   rules.prioritizeDeals = rules.prioritizeDeals !== false;
+  rules.autoPlan = rules.autoPlan === true;
   rules.shoppingStores = Array.isArray(rules.shoppingStores)
     ? rules.shoppingStores.map(String).filter(Boolean)
     : [...DEFAULT_RULES.shoppingStores];

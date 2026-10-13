@@ -4,6 +4,12 @@ const { getDb } = require('../db');
 const { inTransaction } = require('../db/transaction');
 const { normalizeMeal } = require('./meal');
 
+// A day's source: 'auto' (filled by the generator), 'bought' (generated and
+// then locked because the food has been bought, see lockBoughtDays) or
+// 'manual' (chosen by the user). Anything else is saved as 'manual'.
+const SOURCES = ['auto', 'bought', 'manual'];
+const sourceOf = (entry) => (SOURCES.includes(entry.source) ? entry.source : 'manual');
+
 function mealFromRow(row) {
   return normalizeMeal({
     id: row.id,
@@ -125,7 +131,7 @@ async function writeSchedule(db, schedule) {
       entry.date,
       entry.mealId || null,
       entry.mealName,
-      entry.source === 'auto' ? 'auto' : 'manual'
+      sourceOf(entry)
     );
   }
 }
@@ -154,7 +160,7 @@ async function updateScheduleEntry(scheduleId, index, updateEntry) {
       'UPDATE schedule_entries SET meal_id = ?, meal_name = ?, source = ? WHERE schedule_id = ? AND day_index = ?',
       entry.mealId || null,
       entry.mealName,
-      entry.source === 'auto' ? 'auto' : 'manual',
+      sourceOf(entry),
       scheduleId,
       index
     );
@@ -164,9 +170,10 @@ async function updateScheduleEntry(scheduleId, index, updateEntry) {
 
 // --- Settings ---
 
-async function getRules() {
+// A JSON value from the settings table, or null if it's missing or broken.
+async function getSetting(key) {
   const db = await getDb();
-  const row = await db.get("SELECT value_json FROM settings WHERE key = 'rules'");
+  const row = await db.get('SELECT value_json FROM settings WHERE key = ?', key);
   if (!row) return null;
   try {
     return JSON.parse(row.value_json);
@@ -175,16 +182,20 @@ async function getRules() {
   }
 }
 
-async function saveRules(rules) {
+async function saveSetting(key, value) {
   await inTransaction((db) =>
     db.run(
-      `INSERT INTO settings (key, value_json, updated_at) VALUES ('rules', ?, ?)
+      `INSERT INTO settings (key, value_json, updated_at) VALUES (?, ?, ?)
        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
-      JSON.stringify(rules),
+      key,
+      JSON.stringify(value),
       new Date().toISOString()
     )
   );
 }
+
+const getRules = () => getSetting('rules');
+const saveRules = (rules) => saveSetting('rules', rules);
 
 module.exports = {
   addMeal,
@@ -193,8 +204,10 @@ module.exports = {
   getMeals,
   getRules,
   getSchedules,
+  getSetting,
   removeSchedulesBeforeWeekStart,
   saveRules,
+  saveSetting,
   updateMeal,
   updateScheduleEntry,
   updateSchedules,

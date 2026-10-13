@@ -924,7 +924,8 @@ a:focus-visible {
   background: var(--accent-soft);
 }
 
-.deal-planning-info {
+.deal-planning-info,
+.auto-plan-status {
   margin: -0.25rem 0 0.75rem;
   padding: 0.55rem 0.75rem;
   border-radius: 8px;
@@ -933,11 +934,13 @@ a:focus-visible {
   line-height: 1.45;
 }
 
-.deal-planning-info p {
+.deal-planning-info p,
+.auto-plan-status p {
   margin: 0.25rem 0 0;
 }
 
-.deal-planning-info .muted {
+.deal-planning-info .muted,
+.auto-plan-status .muted {
   margin: 0.25rem 0 0;
 }
 

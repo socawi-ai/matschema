@@ -84,6 +84,12 @@
             <% } %>
             <p class="muted">Fyller tomma dagar <%= rules.planningHorizonWeeks %> veckor framåt enligt reglerna. Dagar du redan valt ändras inte.</p>
           </div>
+          <% if (autoPlanStatus) { %>
+            <div class="auto-plan-status">
+              <strong>🤖 Automatisk planering</strong>
+              <% autoPlanStatus.forEach(function(line) { %><p class="muted"><%= line %></p><% }) %>
+            </div>
+          <% } %>
           <% if (dealPlanning.active) { %>
             <div class="deal-planning-info">
               <label class="deal-store-choice">
@@ -157,7 +163,7 @@
                       <% if (isEmpty) { %>
                         Tom <span class="muted">– visas som Rester tills den fylls</span>
                       <% } else { %>
-                        <%= entry.mealName %><% if (isCustom) { %> <span class="badge">egen</span><% } %>
+                        <%= entry.mealName %><% if (isCustom) { %> <span class="badge">egen</span><% } %><% if (entry.source === 'bought') { %> <span class="badge" title="Handlad – automatisk planering ändrar inte dagen">🛒</span><% } %>
                       <% } %>
                     </button>
                     <div class="day-actions">
@@ -418,6 +424,11 @@
               <label class="inline-check">
                 <input type="checkbox" name="prioritizeDeals" <%= rules.prioritizeDeals ? 'checked' : '' %> />
                 🏷 Välj rätter med erbjudanden på huvudråvaran först (fredag–söndag två veckor fram)
+              </label>
+
+              <label class="inline-check">
+                <input type="checkbox" name="autoPlan" <%= rules.autoPlan ? 'checked' : '' %> />
+                🤖 Planera om automatiskt varje vecka när nya erbjudanden kommer (mån–tis), i butiken med flest erbjudanden. Från fredag räknas dagarna som handlade och ändras inte.
               </label>
 
               <fieldset class="day-choice-group">

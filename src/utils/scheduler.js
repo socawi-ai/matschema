@@ -279,8 +279,8 @@ function generateWeeks(meals, rules, weekStarts, knownWeeks = [], preference = n
 // Empties days in [from, to) ('YYYY-MM-DD', to exclusive) so they're
 // planned again: with scope 'generated' only days the generator filled
 // (source 'auto'), with scope 'all' every day in the range, including the
-// user's own choices. Emptied days count as generated. Returns new week
-// objects; the input is not changed.
+// user's own choices and bought days. Emptied days count as generated.
+// Returns new week objects; the input is not changed.
 function clearForReplan(weeks, { from, to }, scope = 'generated') {
   return weeks.map((week) => ({
     ...week,
@@ -288,6 +288,19 @@ function clearForReplan(weeks, { from, to }, scope = 'generated') {
       entry.date >= from && entry.date < to && (scope === 'all' || entry.source === 'auto')
         ? { ...entry, mealId: null, mealName: 'Rester', source: 'auto' }
         : entry
+    )
+  }));
+}
+
+// Marks generated days with a meal before `until` ('YYYY-MM-DD', exclusive)
+// as bought (source 'bought'): the food has been bought, so re-planning
+// with 'generated' scope keeps them like the user's own choices. Empty days
+// stay generated. Returns new week objects; the input is not changed.
+function lockBoughtDays(weeks, until) {
+  return weeks.map((week) => ({
+    ...week,
+    entries: (week.entries || []).map((entry) =>
+      entry.source === 'auto' && entry.date < until && isEntryFilled(entry) ? { ...entry, source: 'bought' } : entry
     )
   }));
 }
@@ -364,6 +377,7 @@ module.exports = {
   generateWeekSchedule,
   generateWeeks,
   getISOWeekNumber,
+  lockBoughtDays,
   mealCategory,
   mealsUsedNearWeek,
   parseISODate,

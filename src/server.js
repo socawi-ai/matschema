@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const app = require('./app');
 const { countUsers, createUser, getDb } = require('./db');
 const { startDealsScheduler } = require('./deals');
+const { startAutoPlanner } = require('./schedule/auto');
 
 const PORT = Number(process.env.PORT) || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
@@ -69,6 +70,7 @@ async function start() {
     console.log(`matschema server running on http://localhost:${PORT}`);
   });
   startDealsScheduler();
+  startAutoPlanner();
 }
 
 start().catch((err) => {

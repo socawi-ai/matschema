@@ -19,6 +19,7 @@ It runs as a single Docker container with one SQLite database. The interface is 
 
 - **Offers from Willys, ICA, Coop and Lidl**, fetched automatically from the chains' own websites. They're sorted into everyday categories (dairy, meat, chicken, fish, vegetables, pasta …), with manual corrections and a "new this week" check.
 - **Deal-based planning**: the plan picks meals whose main ingredient is on offer at the one store you'll do your big shop at, for the days you're shopping for.
+- **Automatic weekly planning** (optional): when the new offers arrive each Monday, the coming weeks are planned again for the best store, and from Friday the days you've shopped for are locked.
 
 **Viewing**
 
@@ -191,6 +192,7 @@ The three planned weeks, one row per day.
   - choose 🍱 *Rester/Matlåda* (leftovers),
   - choose *Töm dagen* to hand the day back to the generator.
 - **🎲** picks another meal that fits the day: fish stays fish, a special stays a special.
+- **🛒** marks a day as bought: [automatic planning](#automatic-weekly-planning) locked it, so it isn't re-planned. Changing the day makes it your own choice.
 - **🗑** removes a week. It can be filled again.
 - **🏷 Handla på** and **🏷 Planera om med erbjudanden** plan around current offers (see [Deal-based planning](#deal-based-planning)).
 
@@ -218,7 +220,7 @@ This week's offers from your stores.
 
 ### ⚙️ Inställningar
 
-- **Planning rules**, saved automatically: fish and vegetarian meals per week, weeks ahead, special days, vegetarian days, whether to prioritize offers, and which stores you shop at.
+- **Planning rules**, saved automatically: fish and vegetarian meals per week, weeks ahead, special days, vegetarian days, whether to prioritize offers, automatic weekly planning, and which stores you shop at.
 - **Account**: change username and password.
 
 ## Grocery offers
@@ -264,6 +266,17 @@ Most products land right, but not all, especially brand names without a describi
 7. **Why.** Days with a meal on offer show 🏷. Click it to see the offer: product, price, store and end date.
 
 Prioritizing offers can be switched off under ⚙️ Inställningar.
+
+### Automatic weekly planning
+
+For a household that gets new offers on Monday, does the big shop on Tuesday, Wednesday or Thursday, and buys for the deal period (Friday through Sunday two weeks ahead). Turn it on under ⚙️ Inställningar with *🤖 Planera om automatiskt varje vecka*. It's off by default.
+
+1. **Planning, Monday–Thursday.** Once this week's offers are in, Matschema does what *Planera om med erbjudanden → Bara genererade dagar* does, for the store with offers for the most meals (whatever *Handla på* is set to). The offers count as in when every store you shop at has been fetched since Monday and has new offers. If they're late, it plans anyway on Tuesday at 06:00. It runs at most once a week.
+2. **Locking, from Friday.** By Friday you've shopped, so every generated day with a meal up to the end of that week's period is marked 🛒 bought. The next Monday leaves those days alone, so in practice it plans the newest week and any empty days.
+3. **Your choices.** Days you set yourself are never touched. To change a bought day, change it as usual. To re-plan everything, including bought days, use *Planera om med erbjudanden → Hela perioden*.
+4. **Downtime.** If the server was off, a missed Friday is locked before the next planning, and a missed Monday is planned as soon as it's back (until Thursday).
+
+The 📅 Schema tab shows when it last planned, for which store, and which days were locked. Times follow the container's `TZ`.
 
 ## Public schedule
 
