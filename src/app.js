@@ -9,15 +9,10 @@ const backendRouter = require('./routes/backend');
 const authRouter = require('./routes/auth');
 const { attachUser, requireAuth } = require('./middleware/auth');
 const SQLiteSessionStore = require('./db/session-store');
+const { cookieSecure, forceHttps, isProduction, trustProxySetting } = require('./env');
 
 const app = express();
-const isProduction = process.env.NODE_ENV === 'production';
 const sessionSecret = process.env.SESSION_SECRET;
-const cookieSecure = process.env.COOKIE_SECURE === 'true';
-const forceHttps =
-  typeof process.env.FORCE_HTTPS === 'string'
-    ? process.env.FORCE_HTTPS === 'true'
-    : cookieSecure;
 
 const embedAllowedOrigins = String(process.env.EMBED_ALLOWED_ORIGINS || '')
   .split(',')
@@ -25,13 +20,10 @@ const embedAllowedOrigins = String(process.env.EMBED_ALLOWED_ORIGINS || '')
   .filter(Boolean);
 
 if (isProduction && !sessionSecret) {
-  throw new Error('SESSION_SECRET must be set in production.');
+  throw new Error('SESSION_SECRET must be set (or NODE_ENV=development for local development).');
 }
 
-if (isProduction) {
-  // Required when running behind a reverse proxy/ingress that terminates TLS.
-  app.set('trust proxy', 1);
-}
+app.set('trust proxy', trustProxySetting());
 
 app.disable('x-powered-by');
 
@@ -63,7 +55,8 @@ app.use((req, res, next) => {
     res.setHeader('X-Frame-Options', 'DENY');
   }
 
-  if (isProduction) {
+  // Only over HTTPS: on plain HTTP browsers ignore it anyway.
+  if (isProduction && (cookieSecure || forceHttps)) {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   next();
@@ -104,6 +97,8 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(
   session({
     name: 'matschema.sid',
+    // The fallback is only reachable in development: production requires
+    // SESSION_SECRET (checked above).
     secret: sessionSecret || 'dev-only-change-me',
     resave: false,
     saveUninitialized: false,

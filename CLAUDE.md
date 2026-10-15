@@ -17,7 +17,7 @@ node scripts/seed-meals.js                    # 31 example meals (overwrites sam
 MATSCHEMA_DATA_DIR=/tmp/copy PORT=3200 npm start   # run against another data folder
 ```
 
-There is no build step, bundler, linter or formatter. `.env` in the repo root is loaded by `src/load-env.js` (it never overrides variables already set). In development (`NODE_ENV` not `production`) sessions are in memory and an admin is bootstrapped automatically; in production `SESSION_SECRET` is required and sessions live in SQLite.
+There is no build step, bundler, linter or formatter. `.env` in the repo root is loaded by `src/load-env.js` (it never overrides variables already set). `src/env.js` decides the mode: only `NODE_ENV=development` or `test` is development; anything else, including unset, is production. In development sessions are in memory and an admin is bootstrapped automatically; in production `SESSION_SECRET` is required and sessions live in SQLite. Express's `trust proxy` comes from `trustProxySetting()` in `src/env.js` (`TRUST_PROXY`, else one hop only when `COOKIE_SECURE`/`FORCE_HTTPS` say there's an HTTPS proxy). It decides `req.ip`, which the login rate limit counts, so never trust `X-Forwarded-*` without a proxy in front.
 
 ## Architecture
 
@@ -45,11 +45,12 @@ There is no build step, bundler, linter or formatter. `.env` in the repo root is
 - The CSP allows inline scripts and styles but nothing external, so don't add CDN assets. Fonts are self-hosted in `public/fonts/`.
 - Non-GET requests with `Sec-Fetch-Site: cross-site` or `same-site` are rejected.
 - Form input goes through `src/utils/input.js` (`text`, `textList`, `secret`).
+- Login stores `users.session_version` in the session; `attachUser` (`src/middleware/auth.js`) logs out sessions whose version doesn't match. `updateUserPasswordHash` bumps it, ending every other session, and the password route saves the new version in the current one. Sessions from before this existed count as 0.
 
 ## Conventions
 
 - The UI and log messages are in Swedish; code, identifiers and comments are in English.
-- Tests use `node:test` with `node:assert/strict`, and each test file sets `process.env.MATSCHEMA_DATA_DIR` to a fresh temp dir **before** requiring app modules (the data path is read at require time). Don't let tests touch `data/`.
+- Tests use `node:test` with `node:assert/strict`, and each test file sets `process.env.MATSCHEMA_DATA_DIR` to a fresh temp dir **before** requiring app modules (the data path is read at require time). Files that load `src/app` also set `NODE_ENV=test` first. Each file runs in its own process, so it can set its own environment (see `test/rate-limit-proxy.test.js`). Don't let tests touch `data/`.
 - `data/` (the real database) and `.env` are git-ignored.
 - Releases: bump `version` in package.json in its own commit ("Bump version to x.y.z"). Pushes to `main` and `v*` tags are built by `.github/workflows/docker-publish.yml`: smoke-tested (requires `src/data/store` and `src/app`), Trivy-scanned (fails on fixable HIGH/CRITICAL), and published as `latest`, `sha-<commit>` and the tag.
 - `ecosystem.config.cjs` / `npm run pm2:*` and `scripts/restart-server.sh` are for a bare-metal pm2 deployment; Docker is the documented way to run it.

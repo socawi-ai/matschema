@@ -124,9 +124,11 @@ async function updateUsername(id, username) {
   return findUserById(id);
 }
 
+// Also ends every session that logged in with the old password
+// (users.session_version, see middleware/auth.js).
 async function updateUserPasswordHash(id, passwordHash) {
   const db = await getDb();
-  await db.run('UPDATE users SET password_hash = ? WHERE id = ?', passwordHash, id);
+  await db.run('UPDATE users SET password_hash = ?, session_version = session_version + 1 WHERE id = ?', passwordHash, id);
   return findUserById(id);
 }
 

@@ -54,6 +54,7 @@ You need Docker with the Compose plugin. Everything else is in the image `ghcr.i
          SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env or shell}
          COOKIE_SECURE: ${COOKIE_SECURE:-false}
          FORCE_HTTPS: ${FORCE_HTTPS:-false}
+         TRUST_PROXY: ${TRUST_PROXY:-}
          EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-}
          AUTO_BOOTSTRAP_ADMIN: ${AUTO_BOOTSTRAP_ADMIN:-false}
          DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}
@@ -135,7 +136,7 @@ docker compose logs -f
 
 Your data lives in `./data` and is kept when the image is updated. When a new version changes how data is stored, the app migrates the database automatically on startup, before it serves any requests. Each migration runs once, inside a transaction; if one fails, nothing is changed and the container stops with an error.
 
-To stay on a specific version instead of `latest`, set the image tag, e.g. `ghcr.io/socawi-ai/matschema:v0.5.1`. Every published build is also tagged `sha-<commit>`.
+To stay on a specific version instead of `latest`, set the image tag, e.g. `ghcr.io/socawi-ai/matschema:v0.5.2`. Every published build is also tagged `sha-<commit>`.
 
 ### Restoring a backup
 
@@ -146,6 +147,17 @@ docker compose up -d
 ```
 
 If the backup is from before an update, also set the image back to the version you ran then, since database updates are one-way.
+
+### Upgrading to v0.5.2
+
+v0.5.2 closes a hole in the login limit and tightens a few defaults. Nothing needs changing in a setup that follows this README:
+
+- **Behind an HTTPS proxy** (`COOKIE_SECURE=true` / `FORCE_HTTPS=true`): works as before. Make sure the port is only published on localhost (see [Reverse proxy and HTTPS](#reverse-proxy-and-https)).
+- **Reached directly over plain HTTP**: works as before; the startup log now warns that logins travel unencrypted.
+- **Behind a proxy over plain HTTP**: set `TRUST_PROXY=1`, or the login limit counts every visitor as the proxy.
+- **No `NODE_ENV` set**: now counts as production, so `SESSION_SECRET` is required. The Compose file and image already set both.
+
+Existing logins stay valid; from now on, changing the password logs out your other sessions.
 
 ### Upgrading from v0.4 or earlier
 
@@ -173,6 +185,7 @@ Settings are environment variables, set in `.env` when using Compose.
 | `AUTO_BOOTSTRAP_ADMIN` | `false` | Create the first admin account on startup if there is none. |
 | `DEFAULT_ADMIN_USERNAME` / `DEFAULT_ADMIN_PASSWORD` | `admin` / generated | Credentials for that first account. |
 | `COOKIE_SECURE` / `FORCE_HTTPS` | `false` | Set both to `true` when the app is reached over HTTPS through a reverse proxy. Keep them `false` for plain HTTP. |
+| `TRUST_PROXY` | see [below](#reverse-proxy-and-https) | Which proxy's `X-Forwarded-For` / `X-Forwarded-Proto` to trust. |
 | `EMBED_ALLOWED_ORIGINS` | empty | Sites allowed to show the app in an iframe, comma-separated (see [Home Assistant](#home-assistant)). |
 | `DEALS_AUTO_REFRESH` | `true` | Fetch store offers automatically. `false` = only when you press *Uppdatera nu*. |
 | `PORT` | `3000` | Port inside the container. |
@@ -314,12 +327,29 @@ EMBED_ALLOWED_ORIGINS=https://homeassistant.example.com
 
 ## Reverse proxy and HTTPS
 
-To reach Matschema over HTTPS through a reverse proxy (e.g. nginx, Caddy, Traefik), proxy to port 3000 and set:
+Without HTTPS, passwords and login cookies cross the network unencrypted, and the startup log warns about it. To reach Matschema over HTTPS through a reverse proxy (e.g. nginx, Caddy, Traefik), proxy to port 3000 and set:
 
 ```env
 COOKIE_SECURE=true
 FORCE_HTTPS=true
 ```
+
+With [Caddy](https://caddyserver.com), which gets the certificate itself, this `Caddyfile` is enough:
+
+```
+matschema.example.com {
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+When the proxy runs on the same machine, publish the port on localhost only, so nobody can reach Matschema around it:
+
+```yaml
+    ports:
+      - "127.0.0.1:3000:3000"
+```
+
+**`TRUST_PROXY`**: the visitor's IP (which the login limit counts) and whether a request came over HTTPS come from the proxy's `X-Forwarded-For` and `X-Forwarded-Proto` headers. Anyone can send those headers, so they're only believed from a proxy: by default one proxy when `COOKIE_SECURE` or `FORCE_HTTPS` is on, and none otherwise. Set it if that doesn't match your setup: `TRUST_PROXY=1` for a proxy without HTTPS, `TRUST_PROXY=2` for two proxies in a row, or `TRUST_PROXY=false` for none.
 
 ## Data
 
@@ -329,7 +359,7 @@ The container runs as root so it can write to the mounted folder without extra p
 
 ## Security
 
-- **Login**: passwords are hashed with bcrypt, and failed logins are limited to 8 per 15 minutes per IP address.
+- **Login**: passwords are hashed with bcrypt, and failed logins are limited to 8 per 15 minutes per IP address (kept in memory, so a restart resets it). Changing the password logs out your other sessions.
 - **Changes**: only accepted from the app's own pages; requests from other sites, including other subdomains of your domain, are refused.
 - **Pages**: a Content-Security-Policy limits them to the app's own scripts and styles. Framing is blocked unless allowed, and admin pages aren't cached.
 - **Input**: form fields accept plain text only, within length limits.
@@ -345,9 +375,11 @@ cp .env.example .env   # set NODE_ENV=development and a SESSION_SECRET
 npm run dev            # http://localhost:3000, restarts on file changes
 ```
 
+Only `NODE_ENV=development` (or `test`) is development mode. Anything else, including no `NODE_ENV` at all, runs with the production safeguards, so the app won't start without `SESSION_SECRET`.
+
 | Command | Purpose |
 | --- | --- |
-| `npm test` | Run the tests: scheduling, rules, migrations, offer sources (against saved real responses), categories and deal-based planning. |
+| `npm test` | Run the tests: scheduling, rules, migrations, offer sources (against saved real responses), categories, deal-based planning, and the login limit, sessions and startup safeguards. |
 | `npm run seed:admin` | Create an admin account from `ADMIN_USERNAME` and `ADMIN_PASSWORD`. |
 | `node scripts/seed-meals.js` | Add 31 example meals, covering every main ingredient. Meals with the same names are overwritten. |
 

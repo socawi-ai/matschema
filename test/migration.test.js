@@ -83,6 +83,11 @@ test('migrates an existing JSON install into SQLite on first start', async () =>
 
   assert.deepEqual(await store.getRules(), { fishMealsPerWeek: 3 }, 'most recently saved rules become shared');
   assert.equal((await db.get('PRAGMA user_version')).user_version, MIGRATIONS.length);
+  assert.deepEqual(
+    (await db.all('SELECT session_version FROM users')).map((row) => row.session_version),
+    [0, 0],
+    'existing logins stay valid: sessions without a version count as 0'
+  );
 
   assert.ok(!fs.existsSync(path.join(dataDir, 'meals.json')));
   assert.ok(fs.existsSync(path.join(dataDir, 'meals.json.migrated')), 'original kept as backup');
@@ -139,12 +144,19 @@ test('a corrupt JSON file stops the migration and changes nothing', async () => 
 test('a fresh install with no JSON files just creates the tables', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'matschema-fresh-'));
   const db = await open({ filename: path.join(dir, 'matschema.sqlite'), driver: sqlite3.Database });
+  // What db/index.js creates before running the migrations.
+  await db.exec(`CREATE TABLE users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT NOT NULL UNIQUE, username TEXT UNIQUE,
+    password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'admin', created_at TEXT NOT NULL
+  )`);
   await db.exec('CREATE TABLE user_rules (user_id INTEGER PRIMARY KEY, rules_json TEXT NOT NULL, updated_at TEXT NOT NULL)');
 
   await runMigrations(db, dir);
 
   assert.equal((await db.get('PRAGMA user_version')).user_version, MIGRATIONS.length);
   assert.equal((await db.get('SELECT COUNT(*) AS n FROM meals')).n, 0);
+  const userColumns = (await db.all('PRAGMA table_info(users)')).map((column) => column.name);
+  assert.ok(userColumns.includes('session_version'));
   assert.equal(await db.get("SELECT * FROM settings WHERE key = 'rules'"), undefined);
   await db.close();
 });

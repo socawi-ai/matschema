@@ -4,6 +4,8 @@ services:
     container_name: matschema
     restart: unless-stopped
     ports:
+      # Behind a reverse proxy on the same machine, publish on localhost only
+      # ("127.0.0.1:3000:3000"), so nobody can reach the app around it.
       - "3000:3000"
     environment:
       NODE_ENV: production
@@ -12,6 +14,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET in .env or shell}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       FORCE_HTTPS: ${FORCE_HTTPS:-false}
+      TRUST_PROXY: ${TRUST_PROXY:-}
       EMBED_ALLOWED_ORIGINS: ${EMBED_ALLOWED_ORIGINS:-}
       AUTO_BOOTSTRAP_ADMIN: ${AUTO_BOOTSTRAP_ADMIN:-false}
       DEFAULT_ADMIN_USERNAME: ${DEFAULT_ADMIN_USERNAME:-admin}

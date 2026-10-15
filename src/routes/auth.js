@@ -40,6 +40,7 @@ router.post('/login', loginRateLimiter, async (req, res, next) => {
     return req.session.regenerate((err) => {
       if (err) return next(err);
       req.session.userId = user.id;
+      req.session.sessionVersion = user.session_version;
       return res.redirect('/backend');
     });
   } catch (err) {

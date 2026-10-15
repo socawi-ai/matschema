@@ -440,8 +440,10 @@ router.post('/settings/password', async (req, res) => {
   }
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
-  await updateUserPasswordHash(req.currentUser.id, passwordHash);
-  return done(req, res, 'Lösenordet har uppdaterats.');
+  const updated = await updateUserPasswordHash(req.currentUser.id, passwordHash);
+  // Keep this session logged in; every other one is now outdated.
+  req.session.sessionVersion = updated.session_version;
+  return done(req, res, 'Lösenordet har uppdaterats. Andra inloggningar har loggats ut.');
 });
 
 module.exports = router;

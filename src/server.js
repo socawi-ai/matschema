@@ -8,10 +8,10 @@ const bcrypt = require('bcryptjs');
 const app = require('./app');
 const { countUsers, createUser, getDb } = require('./db');
 const { startDealsScheduler } = require('./deals');
+const { cookieSecure, isProduction } = require('./env');
 const { startAutoPlanner } = require('./schedule/auto');
 
 const PORT = Number(process.env.PORT) || 3000;
-const isProduction = process.env.NODE_ENV === 'production';
 
 function generateBootstrapPassword() {
   return crypto.randomBytes(9).toString('base64url');
@@ -65,6 +65,13 @@ async function start() {
   // migration stops the app instead of serving an empty meal list.
   await getDb();
   await bootstrapDefaultAdminIfNeeded();
+
+  if (isProduction && !cookieSecure) {
+    console.warn(
+      'Matschema: varning – COOKIE_SECURE är inte på, så lösenord och inloggningar skickas okrypterat. ' +
+        'Kör appen bakom en HTTPS-proxy och sätt COOKIE_SECURE=true och FORCE_HTTPS=true (se README).'
+    );
+  }
 
   app.listen(PORT, () => {
     console.log(`matschema server running on http://localhost:${PORT}`);

@@ -23,6 +23,10 @@ const MIGRATIONS = [
   {
     name: 'Skilj på dagar du valt själv och genererade dagar i schemat',
     up: addScheduleEntrySource
+  },
+  {
+    name: 'Logga ut andra inloggningar när lösenordet byts',
+    up: addUserSessionVersion
   }
 ];
 
@@ -291,6 +295,13 @@ async function addScheduleEntrySource(db) {
     ALTER TABLE schedule_entries ADD COLUMN source TEXT NOT NULL DEFAULT 'manual';
     UPDATE schedule_entries SET source = 'auto' WHERE meal_id IS NULL AND meal_name = 'Rester';
   `);
+}
+
+// users.session_version: bumped when the password changes, so sessions that
+// logged in before it are logged out (see middleware/auth.js). Existing
+// users and sessions start at 0, so nobody is logged out by the upgrade.
+async function addUserSessionVersion(db) {
+  await db.exec('ALTER TABLE users ADD COLUMN session_version INTEGER NOT NULL DEFAULT 0');
 }
 
 module.exports = { runMigrations, MIGRATIONS };
