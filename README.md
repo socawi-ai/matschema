@@ -405,3 +405,9 @@ In development, login sessions are kept in memory, so restarting the server logs
 | `views/`, `public/` | Pages, styles and browser scripts |
 
 Pushes to `main` and `v*` tags are built by GitHub Actions, smoke-tested, scanned with Trivy and published to `ghcr.io/socawi-ai/matschema` as `latest`, `sha-<commit>` and the version tag.
+
+## License
+
+Licensed under the [GNU Affero General Public License v3.0](LICENSE) (AGPL-3.0). You may use, change and share it; if you share a changed version, or run one as a network service for others, you must make its source available under the same license.
+
+The fonts in `public/fonts/` are under the SIL Open Font License 1.1 (see `public/fonts/LICENSE.txt`).
